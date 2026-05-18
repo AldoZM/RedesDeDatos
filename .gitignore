@@ -17,8 +17,6 @@
 *.snm
 *.vrb
 
-# Compiled PDF output (keep the source manual PDF)
-ApuntesRedes.pdf
 
 # OS artifacts
 .DS_Store
