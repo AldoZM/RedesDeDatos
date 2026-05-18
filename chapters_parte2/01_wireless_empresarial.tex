@@ -1,1 +1,366 @@
-﻿% TODO
+\chapter{\eh{satellite-antenna} Wireless Empresarial --- WPA3 y 802.1X}
+
+\begin{concepto}
+El Wi-Fi empresarial moderno no es el mismo router de casa con una contraseña
+compartida. En entornos corporativos, aeropuertos, universidades y hospitales,
+la seguridad inalámbrica se construye sobre tres pilares:
+\textbf{autenticación individual}, \textbf{cifrado por sesión} y
+\textbf{control de acceso por puerto}.
+
+Este capítulo cubre \textbf{WPA3} (el protocolo de seguridad Wi-Fi más moderno)
+y \textbf{802.1X} (el estándar de control de acceso a red por puerto, usado tanto
+en Wi-Fi como en switches cableados).
+\end{concepto}
+
+%% ── 1.1 WPA3 ────────────────────────────────────────────────────────────────
+\section{\eh{locked} WPA3 --- Wi-Fi Protected Access 3}
+
+\begin{concepto}
+\textbf{WPA2} (802.11i, 2004) usa \textbf{PSK} (Pre-Shared Key): una sola
+contraseña compartida que todos los usuarios conocen. Quien sabe la contraseña
+entra. Si esa contraseña se filtra, \textit{toda la red queda comprometida}.
+Además, un atacante puede capturar el 4-way handshake y atacarlo offline
+con diccionario (Hashcat a millones de intentos por segundo).
+
+\textbf{WPA3} (2018) reemplaza PSK por \textbf{SAE} (Simultaneous Authentication
+of Equals), también conocido como ``Dragonfly Handshake''. Cada cliente se
+autentica individualmente con un protocolo de prueba de conocimiento cero.
+
+\emoji{light-bulb} \textbf{Analogía:}
+\begin{itemize}
+    \item \textbf{WPA2-PSK} = llave maestra que todos los empleados tienen.
+          Si un empleado la pierde (o la fotografía), cualquiera entra.
+    \item \textbf{WPA3-SAE} = tarjeta inteligente individual por empleado.
+          Cada tarjeta es única; perder una no compromete las demás.
+          Además, la tarjeta no ``revela'' el PIN al sistema --- solo demuestra
+          que lo conoce (prueba de conocimiento cero).
+\end{itemize}
+\end{concepto}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\bfseries}p{3.8cm} p{4.5cm} p{4.5cm}}
+\toprule
+\textbf{Característica} & \textbf{WPA2} & \textbf{WPA3} \\
+\midrule
+Intercambio de llaves
+    & PSK (Pre-Shared Key) --- contraseña compartida
+    & SAE / Dragonfly --- Diffie-Hellman con prueba de conocimiento cero \\
+Forward Secrecy
+    & No --- capturar el handshake permite descifrar sesiones pasadas
+    & Sí --- cada sesión genera llaves efímeras únicas \\
+Ataques offline
+    & Vulnerable --- atacante captura el 4-way handshake y ataca con diccionario
+    & Resistente --- SAE no permite ataques offline de diccionario \\
+Redes abiertas
+    & Sin cifrado (aeropuertos, cafeterías en texto claro)
+    & OWE (Opportunistic Wireless Encryption) --- cifrado sin contraseña \\
+Modo empresarial
+    & WPA2-Enterprise con 802.1X/EAP
+    & WPA3-Enterprise con 802.1X/EAP + Suite B (criptografía de 192 bits) \\
+Estándar IEEE
+    & 802.11i (2004)
+    & IEEE 802.11-2020 (enmienda) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ── 1.1.1 SAE ───────────────────────────────────────────────────────────────
+\subsection{\eh{key} SAE --- Simultaneous Authentication of Equals}
+
+\begin{concepto}
+\textbf{SAE} (RFC 7664 / IEEE 802.11-2020) es un protocolo de establecimiento
+de llaves basado en \textbf{Diffie-Hellman sobre curva elíptica} con una
+\textbf{prueba de conocimiento cero} (\textit{zero-knowledge proof}).
+
+\textbf{¿Qué significa prueba de conocimiento cero aquí?}
+En WPA2, durante el 4-way handshake, el cliente y el AP derivan una PMK
+a partir de la contraseña y la intercambian de forma que un atacante que capture
+el tráfico puede verificar contraseñas offline. En SAE, el protocolo demuestra
+que \textit{ambas partes conocen la misma contraseña} sin que ninguna la transmita
+--- ni en texto claro ni en forma derivada atacable offline.
+
+\vspace{0.5em}
+\textbf{Forward Secrecy (Secreto hacia adelante):}
+Cada sesión Wi-Fi negocia un par de llaves efímeras (de un solo uso).
+Si un atacante graba todo el tráfico cifrado de hoy y mañana roba
+la contraseña del AP, \textit{no puede descifrar el tráfico de hoy}
+porque las llaves efímeras ya no existen. WPA2 no tiene esta propiedad.
+\end{concepto}
+
+\begin{cuidado}
+\textbf{KRACK Attack (Key Reinstallation Attack, 2017) --- CVE-2017-13077}
+
+Mathy Vanhoef descubrió que en el 4-way handshake de WPA2, un atacante
+Man-in-the-Middle podía forzar la \textbf{reinstalación de llaves ya usadas}
+manipulando los mensajes del handshake. Al reinstalar una llave con un
+nonce repetido, el cifrado CCMP se debilita drásticamente --- en algunos
+casos hasta recuperación de texto claro.
+
+\textbf{Impacto:} afectó prácticamente todo dispositivo Wi-Fi con WPA2 del planeta.
+
+\textbf{WPA3/SAE es inmune por diseño:} SAE no usa un 4-way handshake con
+reinstalación de llaves. El protocolo Dragonfly genera llaves únicas por sesión
+que no pueden ser reinstaladas, eliminando la clase de vulnerabilidad que
+KRACK explotó.
+
+\emoji{light-bulb} Parches de WPA2 existen, pero WPA3 es la solución estructural.
+\end{cuidado}
+
+%% ── 1.1.2 OWE ───────────────────────────────────────────────────────────────
+\subsection{\eh{globe-with-meridians} OWE --- Opportunistic Wireless Encryption}
+
+\begin{concepto}
+\textbf{OWE} (RFC 8110) resuelve un problema clásico: las redes Wi-Fi abiertas
+(aeropuertos, cafeterías, hoteles) no tienen contraseña, por lo que el tráfico
+viaja en texto claro y cualquier persona con un adaptador en modo monitor
+puede \textbf{sniffear pasivamente} todo lo que transmites.
+
+\textbf{OWE} mantiene la experiencia de usuario (no pide contraseña, te conectas
+directamente) pero cifra automáticamente el enlace inalámbrico mediante un
+intercambio \textbf{Diffie-Hellman} entre cliente y AP:
+
+\begin{enumerate}
+    \item Cliente y AP intercambian claves públicas efímeras DH durante la asociación.
+    \item Derivan una \textbf{PMK} (Pairwise Master Key) compartida.
+    \item El 4-way handshake estándar procede para generar llaves de sesión.
+    \item Todo el tráfico queda cifrado con AES-CCM, incluso sin contraseña.
+\end{enumerate}
+
+\emoji{warning} OWE protege contra \textbf{sniffing pasivo} (alguien escucha tu
+tráfico Wi-Fi). No autentica al AP --- un Evil Twin todavía puede responder.
+Para autenticación del AP, se necesita 802.1X o certificados adicionales.
+\end{concepto}
+
+%% ── 1.2 802.1X ──────────────────────────────────────────────────────────────
+\section{\eh{shield} 802.1X --- Port-Based Network Access Control}
+
+\begin{concepto}
+\textbf{802.1X} (IEEE 802.1X-2020) es el estándar de \textbf{control de acceso
+a red basado en puerto}. Define tres actores:
+
+\begin{itemize}
+    \item \textbf{Supplicant} (Suplicante): el cliente que quiere acceso a la red
+          (laptop, teléfono, impresora). Implementado en el sistema operativo
+          (wpa\_supplicant en Linux, native supplicant en Windows/macOS).
+    \item \textbf{Authenticator} (Autenticador): el switch o Access Point.
+          Tiene el puerto en estado \textbf{UNAUTHORIZED} (bloqueado) hasta que
+          el servidor RADIUS aprueba al cliente. Solo deja pasar tráfico EAP
+          (EAPoL) durante la autenticación.
+    \item \textbf{Authentication Server} (Servidor de Autenticación): típicamente
+          un servidor \textbf{RADIUS} (FreeRADIUS, Cisco ISE, Microsoft NPS).
+          Verifica las credenciales y devuelve Access-Accept o Access-Reject.
+\end{itemize}
+
+\emoji{light-bulb} \textbf{Analogía:} el sistema de llave magnética de un hotel.
+\begin{itemize}
+    \item El \textbf{Supplicant} es el huésped que quiere entrar a su habitación.
+    \item El \textbf{Authenticator} es la cerradura electrónica de la puerta.
+          No importa que el huésped sepa el número de habitación (contraseña
+          compartida): sin la tarjeta válida, la puerta no abre.
+    \item El \textbf{RADIUS Server} es el sistema central del hotel que verifica
+          si esa tarjeta corresponde a una reserva activa y autoriza el acceso.
+\end{itemize}
+
+Si la tarjeta no es válida (credenciales incorrectas, certificado expirado,
+dispositivo no administrado), el puerto queda en UNAUTHORIZED y el cliente
+solo puede acceder a una VLAN de cuarentena --- si es que eso se configura.
+\end{concepto}
+
+%% ── 1.2.1 EAP ───────────────────────────────────────────────────────────────
+\subsection{\eh{puzzle-piece} EAP --- Extensible Authentication Protocol}
+
+\textbf{EAP} (RFC 3748) es el protocolo de autenticación que viaja dentro de
+802.1X. Es ``extensible'' porque define solo el \textit{marco} del intercambio
+de autenticación; el mecanismo real es el \textbf{método EAP} elegido:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\bfseries}p{2.8cm} p{3.5cm} p{4.2cm} p{2.5cm}}
+\toprule
+\textbf{Método} & \textbf{Mecanismo} & \textbf{Caso de uso} & \textbf{Estado} \\
+\midrule
+EAP-TLS
+    & Certificados X.509 mutuos (cliente y servidor)
+    & Máxima seguridad; dispositivos administrados con PKI propia
+    & \textcolor{green!60!black}{\textbf{Recomendado}} \\
+PEAP
+    & Contraseña dentro de túnel TLS (solo el servidor tiene certificado)
+    & Integración con Active Directory; BYOD con credenciales de dominio
+    & Aceptable \\
+EAP-TTLS
+    & Contraseña dentro de túnel TLS con PAP/CHAP interno
+    & Linux, Android, BYOD heterogéneo; no requiere certificado en el cliente
+    & Aceptable \\
+EAP-MD5
+    & Hash MD5 de la contraseña (sin cifrado del canal)
+    & Legacy; sin protección contra ataques de diccionario offline
+    & \textcolor{red}{\textbf{Obsoleto --- No usar}} \\
+EAP-FAST
+    & PAC (Protected Access Credential) en lugar de certificado
+    & Alternativa a PEAP en entornos Cisco sin PKI completa
+    & Uso limitado \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ── 1.2.2 RADIUS ────────────────────────────────────────────────────────────
+\subsection{\eh{satellite} RADIUS --- Remote Authentication Dial-In User Service}
+
+\textbf{RADIUS} (RFC 2865/2866) es el protocolo de AAA (Authentication,
+Authorization, Accounting) más usado en redes empresariales. Opera sobre UDP:
+
+\begin{verbatim}
+  Puertos RADIUS:
+    UDP 1812  — Authentication (sustituye al histórico 1645)
+    UDP 1813  — Accounting     (sustituye al histórico 1646)
+
+  Mensajes principales:
+    Authenticator --> RADIUS:  Access-Request
+                               (contiene: User-Name, NAS-IP, EAP-Message,
+                                Message-Authenticator [HMAC-MD5])
+
+    RADIUS --> Authenticator:  Access-Accept
+                               (+ atributos: Tunnel-Type=VLAN,
+                                Tunnel-Medium-Type=802,
+                                Tunnel-Private-Group-ID=<VLAN-ID>)
+
+                               Access-Reject
+                               (acceso denegado, puede incluir Reply-Message)
+
+                               Access-Challenge
+                               (solicita más información al cliente,
+                                p.ej. segundo factor, certificado)
+
+  Seguridad:
+    - El secreto compartido (RADIUS shared secret) cifra los atributos
+      sensibles (contraseñas) usando MD5.
+    - Para producción: usar RADSEC (RADIUS over TLS, RFC 6614)
+      en lugar de RADIUS sobre UDP plano.
+\end{verbatim}
+
+%% ── 1.2.3 Flujo completo 802.1X ─────────────────────────────────────────────
+\subsection{\eh{right-arrow-curving-up} Flujo Completo 802.1X --- Diagrama de Secuencia}
+
+El siguiente diagrama muestra el flujo completo de autenticación 802.1X
+con EAP-TLS entre los tres actores:
+
+\begin{center}
+\begin{tikzpicture}[
+    msg/.style={-{Stealth}, thick},
+    msgr/.style={{Stealth}-, thick},
+    lbl/.style={font=\small\ttfamily},
+    lbls/.style={font=\scriptsize\itshape, text=gray!70!black}
+]
+
+%% ── Lifelines ───────────────────────────────────────────────────────────────
+\node[font=\bfseries\small, align=center] (sup) at (0, 0)
+    {Supplicant\\{\scriptsize\itshape(Laptop)}};
+\node[font=\bfseries\small, align=center] (aut) at (6, 0)
+    {Authenticator\\{\scriptsize\itshape(Switch / AP)}};
+\node[font=\bfseries\small, align=center] (rad) at (12, 0)
+    {RADIUS Server\\{\scriptsize\itshape(FreeRADIUS/ISE)}};
+
+%% Lifeline verticals
+\draw[thick, gray!50] (0,  -0.4) -- (0,  -13.5);
+\draw[thick, gray!50] (6,  -0.4) -- (6,  -13.5);
+\draw[thick, gray!50] (12, -0.4) -- (12, -13.5);
+
+%% Activation boxes
+\draw[thick, fill=blue!10] (-0.25,-0.4) rectangle (0.25,-13.5);
+\draw[thick, fill=orange!10] (5.75,-0.4) rectangle (6.25,-13.5);
+\draw[thick, fill=violet!10] (11.75,-0.4) rectangle (12.25,-13.5);
+
+%% State label: port unauthorized
+\node[lbls, align=center] at (6, -1.1) {Puerto:\\UNAUTHORIZED};
+
+%% ── Paso 1: EAPOL-Start ─────────────────────────────────────────────────────
+\draw[msg, blue!70!black] (0.25,-1.6) -- (5.75,-1.6)
+    node[midway, above, font=\small] {\textbf{EAPOL-Start}};
+\node[lbls, left] at (0,-1.6) {(1)};
+
+%% ── Paso 2: EAP-Request Identity ────────────────────────────────────────────
+\draw[msgr, orange!70!black] (0.25,-2.6) -- (5.75,-2.6)
+    node[midway, above, font=\small] {\textbf{EAP-Request / Identity}};
+\node[lbls, left] at (0,-2.6) {(2)};
+
+%% ── Paso 3: EAP-Response Identity ───────────────────────────────────────────
+\draw[msg, blue!70!black] (0.25,-3.6) -- (5.75,-3.6)
+    node[midway, above, font=\small] {\textbf{EAP-Response / Identity}};
+\node[lbls, left] at (0,-3.6) {(3)};
+\node[lbl, below right, font=\scriptsize] at (3,-3.6) {user@empresa.com};
+
+%% ── Paso 4: RADIUS Access-Request ───────────────────────────────────────────
+\draw[msg, orange!70!black] (6.25,-4.5) -- (11.75,-4.5)
+    node[midway, above, font=\small] {\textbf{RADIUS Access-Request}};
+\node[lbls, right] at (12,-4.5) {(4)};
+\node[lbl, below right, font=\scriptsize] at (7,-4.5) {EAP-Message encapsulado};
+
+%% ── Paso 5: EAP TLS Tunnel negotiation ──────────────────────────────────────
+\draw[msgr, violet!70!black] (6.25,-5.5) -- (11.75,-5.5)
+    node[midway, above, font=\small] {\textbf{Access-Challenge (TLS ServerHello)}};
+\node[lbls, right] at (12,-5.5) {(5)};
+
+\draw[msgr, orange!70!black] (0.25,-6.3) -- (5.75,-6.3)
+    node[midway, above, font=\small] {\textbf{EAP-Request (TLS ServerHello)}};
+
+\draw[msg, blue!70!black] (0.25,-7.1) -- (5.75,-7.1)
+    node[midway, above, font=\small] {\textbf{EAP-Response (ClientCert + Finished)}};
+
+\draw[msg, orange!70!black] (6.25,-7.9) -- (11.75,-7.9)
+    node[midway, above, font=\small] {\textbf{Access-Request (ClientCert)}};
+
+\node[lbls] at (6,-8.6) {\emoji{locked} Túnel TLS establecido};
+\node[lbls] at (6,-9.0) {RADIUS verifica certificado X.509 del cliente};
+
+%% ── Paso 6: RADIUS Access-Accept ────────────────────────────────────────────
+\draw[msgr, green!60!black, line width=1.5pt] (6.25,-9.7) -- (11.75,-9.7)
+    node[midway, above, font=\small\bfseries] {\textbf{RADIUS Access-Accept}};
+\node[lbls, right] at (12,-9.7) {(6)};
+\node[lbl, below right, font=\scriptsize, text=green!50!black] at (7,-9.7)
+    {VLAN=10, Session-Timeout=3600};
+
+%% ── Paso 7: EAP-Success ─────────────────────────────────────────────────────
+\draw[msgr, green!60!black, line width=1.5pt] (0.25,-10.6) -- (5.75,-10.6)
+    node[midway, above, font=\small\bfseries] {\textbf{EAP-Success}};
+\node[lbls, left] at (0,-10.6) {(7)};
+
+%% ── Paso 8: Puerto autorizado ───────────────────────────────────────────────
+\node[lbls, align=center] at (6,-11.4) {Puerto:\\AUTHORIZED};
+\node[font=\small, text=green!60!black, align=center] at (6,-12.3)
+    {\textbf{Cliente asignado a VLAN 10}\\
+     \textbf{Tráfico de datos permitido}};
+
+%% Caption note
+\node[font=\scriptsize\itshape, text=gray, align=center] at (6,-13.3)
+    {EAPoL (EAP over LAN) entre Supplicant y Authenticator |
+     RADIUS/UDP entre Authenticator y Server};
+
+\end{tikzpicture}
+\end{center}
+
+\begin{moderno}
+\textbf{Google BeyondCorp --- El dispositivo como identidad}
+
+La implementación de 802.1X en Google va más allá del usuario. En el modelo
+\textbf{BeyondCorp} (el origen del término ``Zero Trust''), la autenticación
+de red usa \textbf{EAP-TLS donde el certificado pertenece al DISPOSITIVO},
+no al usuario:
+
+\begin{itemize}
+    \item Cada laptop, teléfono y servidor administrado por Google recibe un
+          \textbf{certificado X.509 único} emitido por la PKI interna de Google.
+    \item El 802.1X valida ese certificado de dispositivo, no una contraseña de usuario.
+    \item Si un empleado trae su laptop personal (\textit{dispositivo no administrado}),
+          el AP la rechaza en el 802.1X --- no hay RADIUS Access-Accept ---
+          independientemente de que el empleado tenga credenciales válidas de usuario.
+    \item \textbf{Credenciales de usuario robadas + dispositivo no administrado
+          = cero acceso a la red interna}.
+\end{itemize}
+
+\emoji{brain} Este modelo invierte el supuesto de confianza tradicional:
+en vez de ``confío en quien está dentro de la red'', el modelo es
+``\textit{no confío en nadie hasta verificar dispositivo, usuario y contexto}''.
+La red es ahora solo un canal de transporte --- el acceso real lo controla
+la capa de aplicación con certificados y políticas de dispositivo.
+\end{moderno}
