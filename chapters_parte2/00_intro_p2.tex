@@ -1,1 +1,191 @@
-﻿% TODO
+\chapter{\eh{rocket} Introducción a la Parte 2 --- Nivel Senior}
+
+%% ── 0.1 ¿Qué cubre esta parte? ──────────────────────────────────────────────
+\section{\eh{books} ¿Qué cubre esta parte?}
+
+\begin{concepto}
+La \textbf{Parte 1} de estos apuntes cubrió los \textbf{fundamentos de redes}:
+el modelo OSI, TCP/IP, protocolos clave (TCP, UDP, DNS, HTTP, TLS, SSH) y
+cómo fluyen los datos de una máquina a otra.
+
+La \textbf{Parte 2} sube un nivel. Aquí vemos cómo funcionan las redes
+\textbf{por dentro}, en producción real, a escala empresarial y de nube:
+
+\begin{itemize}
+    \item \textbf{Datacenters modernos:} VxLAN, EVPN, Spine-Leaf, SDN
+    \item \textbf{Redes de operador (carrier):} MPLS, QoS, ingeniería de tráfico
+    \item \textbf{Kubernetes:} CNI, Service Mesh, Ingress, eBPF
+    \item \textbf{Cloud networking:} AWS VPC, Transit Gateway, Direct Connect
+    \item \textbf{Seguridad de switch empresarial:} 802.1X, MACsec, VLAN hardening
+    \item \textbf{Wi-Fi empresarial:} WPA3-Enterprise, 802.11ax (Wi-Fi 6)
+    \item \textbf{Multicast:} PIM, IGMP, streaming a gran escala
+\end{itemize}
+
+\emoji{light-bulb} \textbf{Analogía:}
+La Parte 1 es aprender a \textbf{manejar un auto}: sabes presionar el acelerador,
+girar el volante, respetar semáforos.
+La Parte 2 es aprender a \textbf{construir el motor}: sabes cómo funciona
+el sistema de combustión, la transmisión, el turbocompresor --- y por qué
+falla a las 3am cuando hay 50{,}000 usuarios conectados.
+\end{concepto}
+
+%% ── 0.2 El Stack del Datacenter Moderno ─────────────────────────────────────
+\section{\eh{office-building} El Stack del Datacenter Moderno}
+
+Antes de entrar a cada tecnología, necesitas ver el panorama completo.
+Este es el flujo real de un paquete desde Internet hasta el contenedor
+que lo procesa en un datacenter moderno (AWS, Google Cloud, un banco grande):
+
+\begin{center}
+\begin{verbatim}
+Internet
+   |
+   v
+Edge Routers  (BGP — hablan con todo Internet)
+   |
+   v
+Firewall / DDoS Mitigation  (filtra ataques, limita flujos)
+   |
+   v
+Load Balancers  (L4/L7 — distribuyen tráfico entre servidores)
+   |
+   v
+Spine Switches  (ECMP — múltiples rutas iguales, sin STP)
+   |
+   v
+Leaf Switches  (VxLAN VTEP — virtualizan la red sobre IP)
+   |
+   v
+Servers / Hypervisors  (Linux + Open vSwitch o eBPF)
+   |
+   v
+Pods / Containers  (Kubernetes — la app vive aquí)
+\end{verbatim}
+\end{center}
+
+\begin{concepto}
+Cada flecha del diagrama es un capítulo de esta parte:
+
+\begin{itemize}
+    \item \textbf{BGP} se estudia en Cloud Networking (cap.\ 07).
+    \item \textbf{Firewall / DDoS} es parte de Seguridad empresarial (cap.\ 02).
+    \item \textbf{Load Balancers + VxLAN + Spine-Leaf} son el cap.\ 04 (Datacenter).
+    \item \textbf{MPLS y QoS} mueven paquetes entre datacenters (cap.\ 05).
+    \item \textbf{Pods y Kubernetes} son el cap.\ 06.
+\end{itemize}
+
+\emoji{light-bulb} \textbf{Analogía:}
+El datacenter es como un aeropuerto enorme. Internet es el mundo exterior.
+Los Edge Routers son la \textit{aduana}. Los Spine Switches son las
+\textit{pistas de aterrizaje} (no hay semáforos --- todo va en paralelo).
+Los Leaf Switches son las \textit{puertas de abordaje}. Los Pods son
+\textit{los asientos de cada vuelo}: el destino final del pasajero (paquete).
+\end{concepto}
+
+%% ── 0.3 Mapa de Tecnologías ─────────────────────────────────────────────────
+\section{\eh{world-map} Mapa de Tecnologías}
+
+La siguiente tabla muestra qué cubre cada capítulo, qué tecnologías
+involucra y en qué entorno vive en producción real:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{>{\bfseries}c p{4.5cm} p{5.5cm}}
+\toprule
+\textbf{Cap.} & \textbf{Tecnología} & \textbf{Dónde vive} \\
+\midrule
+01 & Wi-Fi Empresarial: 802.11ax, WPA3-Enterprise, RADIUS, roaming 802.11r
+   & Oficinas corporativas, campus universitarios, hoteles, aeropuertos \\
+02 & Switching Avanzado: VLANs, STP/RSTP, 802.1X, MACsec, port security
+   & Cualquier red con switches administrables (empresa, datacenter, banco) \\
+03 & SDN y OpenFlow: controladores, APIs northbound/southbound, OpenDaylight
+   & Datacenters de hiperescaladores (Google, Facebook), redes universitarias \\
+04 & Datacenter: VxLAN, EVPN, Spine-Leaf, ECMP, BGP-EVPN
+   & AWS, Azure, GCP, Equinix, datacenters privados grandes \\
+05 & MPLS y QoS: LSP, LDP, RSVP-TE, ingeniería de tráfico, DiffServ
+   & Redes de operador (Telmex, AT\&T, Lumen), troncales entre datacenters \\
+06 & Kubernetes Networking: CNI, Calico, Cilium/eBPF, Service Mesh, Ingress
+   & Toda empresa que corre microservicios en producción \\
+07 & Cloud Networking: VPC, Transit Gateway, Direct Connect, BGP con AWS
+   & AWS, Azure, GCP --- el 90\% de las startups y empresas medianas \\
+08 & Multicast: PIM-SM, PIM-SSM, IGMP, MDT, streaming y finanzas
+   & Broadcasters (televisión IP), bolsas de valores, CDNs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ── 0.4 Parte 1 vs Parte 2 ──────────────────────────────────────────────────
+\section{\eh{balance-scale} Parte 1 vs Parte 2 --- ¿Qué cambia?}
+
+Esta tabla compara el nivel de cada tema entre las dos partes.
+No es que Parte 1 sea ``incorrecto'' --- es que Parte 2 es lo que
+se usa en producción a escala:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{p{3.8cm} p{4cm} p{4cm}}
+\toprule
+\textbf{Dimensión} & \textbf{Parte 1 (Fundamentos)} & \textbf{Parte 2 (Producción)} \\
+\midrule
+Protocolos de transporte
+   & TCP / UDP básico, puertos, handshake
+   & MPLS / VxLAN, túneles, encapsulación multi-capa \\
+Seguridad
+   & TLS (HTTPS), SSH, firewalls básicos
+   & MACsec (capa 2), 802.1X, WPA3-Enterprise, Zero Trust \\
+Wi-Fi
+   & 802.11 básico, WPA2 personal, canales
+   & Wi-Fi 6 (802.11ax), roaming empresarial, RADIUS/EAP \\
+Enrutamiento
+   & RIP, OSPF básico, tablas de rutas
+   & BGP completo, MPLS-TE, ECMP en Spine-Leaf \\
+Switches
+   & VLANs básicas, STP para evitar loops
+   & EVPN, VxLAN VTEP, MLAG, port security avanzado \\
+Virtualización de red
+   & No aplica (redes físicas)
+   & SDN, OpenFlow, OVS, eBPF, Cilium \\
+Contenedores
+   & No aplica
+   & CNI plugins, Kubernetes networking, Service Mesh \\
+Cloud
+   & No aplica
+   & VPC, Transit Gateway, Direct Connect, Cloud Router \\
+Escala
+   & Red de laboratorio o SOHO (10--100 hosts)
+   & Miles de servidores, millones de flujos simultáneos \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ── 0.5 Por qué importa ─────────────────────────────────────────────────────
+\section{\eh{graduation-cap} ¿Por qué importa todo esto?}
+
+\begin{moderno}
+\textbf{El 90\% de la infraestructura empresarial moderna corre sobre:}
+
+\begin{itemize}
+    \item \textbf{Kubernetes} para orquestar contenedores
+    \item \textbf{Cloud networking} (AWS VPC, Azure VNet) para conectar todo
+    \item \textbf{MPLS} en las redes de operador que unen datacenters
+    \item \textbf{VxLAN + EVPN} dentro del datacenter para virtualizar la red
+    \item \textbf{802.1X + MACsec} para seguridad de acceso en campus empresariales
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Las entrevistas de SRE / Network Engineer en empresas como Google,
+Amazon, Banco de México, BBVA, Telmex y cualquier empresa con más de
+500 empleados preguntan exactamente estos temas.}
+
+\vspace{0.5em}
+\emoji{brain} Si sabes explicar por qué VxLAN usa UDP port 4789,
+cómo Kubernetes asigna IPs a los pods, y qué hace un LSR en MPLS ---
+ya estás en el top 10\% de candidatos.
+
+\vspace{0.5em}
+\emoji{light-bulb} \textbf{Analogía final:}
+Un médico general sabe que el corazón bombea sangre (Parte 1).
+Un cirujano cardiovascular sabe hacer un bypass, reparar una válvula
+y gestionar la UCI post-operatoria (Parte 2).
+Ambos son necesarios, pero el hospital solo le confía el quirófano al segundo.
+\end{moderno}
