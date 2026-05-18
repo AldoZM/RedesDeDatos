@@ -1,0 +1,25 @@
+# LaTeX compilation artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.idx
+*.ilg
+*.ind
+*.nav
+*.snm
+*.vrb
+
+# Compiled PDF output (keep the source manual PDF)
+ApuntesRedes.pdf
+
+# OS artifacts
+.DS_Store
+Thumbs.db
