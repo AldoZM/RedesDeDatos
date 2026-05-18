@@ -1,1 +1,264 @@
-% TODO
+\chapter{\eh{link} Capa 2 --- Enlace de Datos (Data Link Layer)}
+
+\section{\eh{thinking-face} ¿Qué hace la capa de enlace?}
+
+\begin{concepto}
+La capa de enlace mueve \textbf{tramas (frames)} entre dos dispositivos
+\textit{directamente conectados} en la misma red local. Usa \textbf{direcciones
+MAC} para identificar quién envía y quién recibe dentro de la LAN.
+
+\emoji{light-bulb} \textbf{Analogía:} Si las IPs son como las direcciones
+postales que funcionan en todo el mundo, las MACs son como el número de asiento
+en un salón de clases: solo funcionan dentro de ese salón (red local).
+Cuando el paquete sale de la red local, las MACs cambian en cada salto de router;
+la IP permanece igual.
+\end{concepto}
+
+\section{\eh{id-button} Dirección MAC}
+
+\begin{concepto}
+La \textbf{dirección MAC} (Media Access Control) es un identificador de
+\textbf{48 bits = 6 bytes} grabado en la tarjeta de red (NIC) de fábrica.
+Teóricamente única en el mundo, aunque puede modificarse por software.
+\end{concepto}
+
+\begin{verbatim}
+  MAC: 00:1A:2B:3C:4D:5E
+       ├── 3 bytes ──┤├─── 3 bytes ───┤
+           OUI              NIC-specific
+       (fabricante)      (único del dispositivo)
+
+  Ejemplos de OUI:
+    00:00:0C → Cisco Systems
+    00:50:56 → VMware
+    B8:27:EB → Raspberry Pi Foundation
+    3C:22:FB → Apple
+\end{verbatim}
+
+Tipos de direcciones MAC:
+\begin{itemize}
+    \item \textbf{Unicast:} dirección única de un solo dispositivo. Bit 0 del primer byte = 0
+    \item \textbf{Multicast:} enviar a un grupo. Bit 0 del primer byte = 1
+    \item \textbf{Broadcast:} \texttt{FF:FF:FF:FF:FF:FF} --- todos los dispositivos de la LAN la reciben
+\end{itemize}
+
+\section{\eh{incoming-envelope} ARP --- Address Resolution Protocol}
+
+\begin{concepto}
+\textbf{ARP} (RFC 826) traduce direcciones IP a direcciones MAC.
+Es necesario porque Ethernet solo entiende MACs, pero las aplicaciones
+usan IPs. Vive entre las capas 2 y 3.
+
+\emoji{light-bulb} \textbf{Analogía:} Sabes el nombre de tu compañero (IP)
+pero necesitas saber en qué asiento está (MAC). ARP es como gritar
+al salón: ``\textit{¡Oye, Juan García! ¿Cuál es tu asiento?}''
+y esperar que Juan levante la mano y diga el número.
+\end{concepto}
+
+Proceso ARP completo:
+\begin{enumerate}
+    \item PC-A (\texttt{192.168.1.10}) quiere hablar con PC-B (\texttt{192.168.1.20})
+          pero no conoce su MAC.
+    \item PC-A revisa su \textbf{ARP cache}: si ya lo tiene guardado, lo usa.
+          Si no:
+    \item PC-A envía \textbf{ARP Request} en \textbf{broadcast}
+          (\texttt{FF:FF:FF:FF:FF:FF}):
+          ``¿Quién tiene \texttt{192.168.1.20}? Respóndele a \texttt{00:AA:BB:11:22:33}''
+    \item Todos los dispositivos de la LAN reciben el ARP Request.
+          Solo PC-B (\texttt{192.168.1.20}) responde.
+    \item PC-B envía \textbf{ARP Reply} en \textbf{unicast} a PC-A:
+          ``Yo tengo \texttt{192.168.1.20}, mi MAC es \texttt{00:CC:DD:44:55:66}''
+    \item PC-A guarda la respuesta en su \textbf{ARP table} (cache, TTL $\approx$20 min)
+    \item PC-A ya puede enviar tramas directamente a la MAC de PC-B
+\end{enumerate}
+
+\begin{cuidado}
+\textbf{ARP Spoofing / ARP Poisoning:} ARP no tiene autenticación. Un atacante
+puede enviar ARP Replies falsos: ``\textit{La IP del router es mi MAC}'' ---
+redirigiendo todo el tráfico por su máquina (ataque \textbf{Man-in-the-Middle}).
+
+Defensa: \textbf{Dynamic ARP Inspection (DAI)} en switches Cisco --- valida
+las respuestas ARP contra una tabla de DHCP snooping.
+\end{cuidado}
+
+\section{\eh{framed-picture} Trama Ethernet (Ethernet II Frame)}
+
+\begin{verbatim}
+Ethernet II Frame:
+ ┌───────────┬──────────┬────────┬──────────────────┬─────┐
+ │ Dst MAC   │ Src MAC  │  Type  │     Payload      │ FCS │
+ │  6 bytes  │ 6 bytes  │ 2 bytes│  46 -- 1500 B    │ 4 B │
+ └───────────┴──────────┴────────┴──────────────────┴─────┘
+
+ Type field (EtherType):
+   0x0800  →  IPv4
+   0x0806  →  ARP
+   0x86DD  →  IPv6
+   0x8100  →  VLAN tagged (802.1Q)
+   0x88CC  →  LLDP (Link Layer Discovery Protocol)
+\end{verbatim}
+
+El \textbf{FCS} (Frame Check Sequence) es un \textbf{CRC-32}: el emisor calcula
+un hash de la trama y lo agrega al final. El receptor recalcula; si no coincide,
+la trama se descarta silenciosamente (la capa superior retransmitirá).
+
+\textbf{MTU} (Maximum Transmission Unit): el payload máximo de Ethernet es
+\textbf{1500 bytes}. Paquetes más grandes se \textbf{fragmentan} en la capa 3.
+Los ``Jumbo frames'' permiten hasta 9000 bytes en redes configuradas para ello
+(data centers, iSCSI).
+
+\section{\eh{satellite} Hub vs Switch vs Bridge}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Característica} & \textbf{Hub} & \textbf{Bridge} & \textbf{Switch} \\
+\midrule
+Capa OSI        & 1 (Física)     & 2 (Enlace)     & 2 (Enlace) / 3* \\
+Inteligencia    & Ninguna        & MAC table (2p) & MAC table (muchos puertos) \\
+Reenvío         & Todos los puertos & Por segmento & Solo al puerto destino \\
+Dominio colisión & Uno único     & Por segmento   & Por puerto (1 por puerto) \\
+Dominio broadcast & Uno          & Uno            & Uno (por VLAN) \\
+Estado actual   & Obsoleto       & Reemplazado    & Estándar \\
+\bottomrule
+\end{tabular}
+\caption{Hub vs Bridge vs Switch}
+\end{table}
+
+\begin{ejemplo}
+\textbf{¿Cómo aprende un switch (MAC learning)?}
+\begin{enumerate}
+    \item PC-A (MAC \texttt{AA:AA}) envía trama por puerto 1
+    \item Switch registra en su MAC table: ``\texttt{AA:AA} → puerto 1''
+    \item Destino (MAC \texttt{BB:BB}) es desconocido → \textbf{flooding}:
+          manda la trama a todos los puertos excepto el 1
+    \item PC-B (MAC \texttt{BB:BB}) en puerto 3 responde
+    \item Switch aprende: ``\texttt{BB:BB} → puerto 3''
+    \item Comunicaciones futuras: \textbf{forwarding} directo al puerto correcto
+\end{enumerate}
+\end{ejemplo}
+
+\section{\eh{card-index-dividers} VLANs --- Virtual LANs (IEEE 802.1Q)}
+
+\begin{concepto}
+Una \textbf{VLAN} divide lógicamente un switch físico en múltiples switches
+virtuales independientes. El tráfico de VLAN 10 es invisible para VLAN 20
+y no puede comunicarse con ella sin pasar por un router (capa 3).
+
+\emoji{light-bulb} \textbf{Analogía:} Un edificio con varios departamentos.
+Todos comparten el mismo edificio físico (el switch), pero cada departamento
+tiene su propia llave y no puede entrar a los otros sin pasar por la
+recepción del edificio (el router).
+
+\textbf{Beneficios:} segmentación de seguridad, reducción de broadcast domains,
+organización lógica independiente de la ubicación física.
+\end{concepto}
+
+El estándar \textbf{IEEE 802.1Q} agrega un tag de \textbf{4 bytes} a la trama
+Ethernet entre el campo Source MAC y el EtherType:
+
+\begin{verbatim}
+ Trama 802.1Q:
+ ┌──────────┬─────────┬────────┬─────┬──────────────┬────────┬─────────┐
+ │ Dst MAC  │ Src MAC │ 0x8100 │ PCP │   VLAN ID    │  Type  │ Payload │
+ │  6 bytes │ 6 bytes │ 2 bytes│ 3 b │   12 bits    │ 2 bytes│  ...    │
+ └──────────┴─────────┴────────┴─────┴──────────────┴────────┴─────────┘
+             └──────────────── 802.1Q Tag (4 bytes) ────────┘
+
+ VLAN ID (VID): valores 1–4094
+   0    → reservado (sin VLAN)
+   1    → VLAN default (no usar para datos)
+   4095 → reservado
+\end{verbatim}
+
+Tipos de puertos en un switch:
+\begin{itemize}
+    \item \textbf{Access port:} conecta a un dispositivo final (PC, impresora).
+          Solo pertenece a \textit{una} VLAN. Las tramas entran/salen sin tag.
+    \item \textbf{Trunk port:} conecta switches entre sí o a un router.
+          Transporta tráfico de \textit{múltiples} VLANs con tags 802.1Q.
+\end{itemize}
+
+\section{\eh{arrows-counterclockwise} STP / RSTP --- Spanning Tree}
+
+\begin{concepto}
+\textbf{STP} (Spanning Tree Protocol, IEEE 802.1D) previene \textbf{loops}
+en redes con múltiples switches. Un loop de capa 2 es catastrófico:
+los broadcasts se replican infinitamente consumiendo 100\% del ancho de banda
+(broadcast storm) hasta colapsar la red.
+
+\emoji{light-bulb} \textbf{Analogía:} Imagina un rumor en la escuela: Juan se
+lo cuenta a María, María a Pedro, Pedro a Juan... y el rumor circula para
+siempre. STP ``corta'' conexiones redundantes para que no haya loops,
+pero las mantiene como respaldo.
+\end{concepto}
+
+Proceso STP simplificado:
+\begin{enumerate}
+    \item \textbf{Elección del Root Bridge:} el switch con menor Bridge ID
+          (prioridad + MAC) se convierte en raíz. Por defecto, prioridad = 32768.
+    \item \textbf{Root Ports:} cada switch no-raíz elige su mejor camino al Root Bridge.
+    \item \textbf{Designated Ports:} en cada segmento, el puerto con mejor camino al Root.
+    \item \textbf{Blocking:} los puertos restantes se bloquean (no reenvían datos,
+          pero sí escuchan BPDUs para detectar cambios).
+\end{enumerate}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Versión} & \textbf{Convergencia} & \textbf{Nota} \\
+\midrule
+STP (802.1D)  & 30--50 segundos & Original, lento \\
+RSTP (802.1w) & 1--2 segundos  & Rapid STP, estándar actual \\
+MSTP (802.1s) & 1--2 segundos  & Multiple STP, una instancia por VLAN \\
+\bottomrule
+\end{tabular}
+\caption{Versiones de Spanning Tree}
+\end{table}
+
+\section{\eh{chains} EtherChannel / LACP}
+
+\begin{concepto}
+\textbf{EtherChannel} agrupa múltiples enlaces físicos en uno lógico,
+multiplicando el ancho de banda y agregando redundancia.
+
+\textbf{LACP} (Link Aggregation Control Protocol, IEEE 802.3ad) es el protocolo
+estándar para negociar EtherChannel dinámicamente.
+\end{concepto}
+
+\begin{ejemplo}
+4 cables Ethernet de 1 Gbps entre dos switches → se ven como
+\textbf{un único enlace de 4 Gbps}. Si un cable falla físicamente,
+el canal sigue funcionando con 3 Gbps. STP no bloquea ninguno porque
+el EtherChannel es un solo enlace lógico.
+\end{ejemplo}
+
+\section{\eh{shield} Port Security}
+
+\begin{concepto}
+\textbf{Port Security} restringe qué direcciones MAC pueden conectarse a un
+puerto del switch. Protege contra MAC flooding y dispositivos no autorizados.
+\end{concepto}
+
+Modos de violación:
+\begin{itemize}
+    \item \textbf{Protect:} descarta tramas de MACs no autorizadas, sin alerta
+    \item \textbf{Restrict:} descarta y envía un SNMP trap / log
+    \item \textbf{Shutdown:} pone el puerto en \textit{err-disabled state} (requiere intervención manual)
+\end{itemize}
+
+\begin{codigo}
+\begin{lstlisting}
+! Cisco IOS - configurar port security en Fa0/1
+interface FastEthernet0/1
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security maximum 2
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+\end{lstlisting}
+\end{codigo}
