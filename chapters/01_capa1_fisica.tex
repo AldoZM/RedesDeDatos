@@ -1,1 +1,273 @@
-% TODO
+\chapter{\eh{electric-plug} Capa 1 --- Física (Physical Layer)}
+
+\section{\eh{thinking-face} ¿Qué hace la capa física?}
+
+\begin{concepto}
+La \textbf{capa física} transmite \textbf{bits crudos} (ceros y unos) sobre un
+medio físico: cable de cobre, fibra óptica o señales de radio. No sabe qué
+significan los datos, solo se encarga de que lleguen correctamente.
+
+\emoji{light-bulb} \textbf{Analogía:} Es como el sistema eléctrico de tu casa.
+No sabe qué aparato vas a enchufar ni para qué lo usas. Solo garantiza que
+la electricidad llega con la tensión correcta al tomacorriente.
+\end{concepto}
+
+\section{\eh{thread} Cable UTP --- Unshielded Twisted Pair}
+
+\begin{concepto}
+\textbf{UTP} (par trenzado no blindado) es el cable más común en redes LAN.
+Tiene \textbf{4 pares de hilos de cobre}, cada par \textbf{trenzado} entre sí
+dentro de una envoltura de plástico.
+
+\emoji{light-bulb} \textbf{¿Por qué trenzado?} Al trenzar los cables se produce
+cancelación de interferencias electromagnéticas (EMI) por inducción mutua.
+Un par envía la señal en ambas polaridades; las interferencias externas afectan
+igual a ambos hilos y al restar las señales, el ruido se cancela. Sin trenzado,
+los cables actuarían como antenas captando ruido de motores, luces fluorescentes, etc.
+\end{concepto}
+
+\subsection{Categorías de cable UTP}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Categoría} & \textbf{Velocidad máx.} & \textbf{Distancia} & \textbf{Frecuencia} & \textbf{Uso típico} \\
+\midrule
+Cat 5e  & 1 Gbps      & 100 m & 100 MHz  & Redes hogar/oficina básica \\
+Cat 6   & 10 Gbps     & 55 m  & 250 MHz  & Redes corporativas \\
+Cat 6a  & 10 Gbps     & 100 m & 500 MHz  & Data centers, acceso \\
+Cat 7   & 10 Gbps     & 100 m & 600 MHz  & STP, blindado, industrial \\
+Cat 8   & 40 Gbps     & 30 m  & 2000 MHz & Conexiones cortas en data center \\
+\bottomrule
+\end{tabular}
+\caption{Categorías de cable UTP y sus especificaciones}
+\end{table}
+
+\begin{cuidado}
+La categoría del cable determina su velocidad máxima. Si conectas Cat 5e
+a un switch de 10 Gbps, el enlace negociará automáticamente a 1 Gbps.
+\textbf{El eslabón más débil de la cadena limita a todos los demás.}
+También importa la categoría de los jacks, patch panels y conectores: de nada
+sirve Cat 6a si los jacks son Cat 5e.
+\end{cuidado}
+
+\subsection{Normas T568-A y T568-B}
+
+\begin{concepto}
+Las normas \textbf{ANSI/EIA/TIA T568-A} y \textbf{T568-B} definen el orden
+exacto de los 8 hilos dentro del conector RJ-45. Son publicadas por TIA
+(Telecommunications Industry Association).
+\end{concepto}
+
+\begin{center}
+\begin{tikzpicture}[
+    pin/.style={rectangle, draw, minimum width=0.65cm, minimum height=1.4cm,
+                font=\tiny\bfseries, align=center}
+]
+% T568-B
+\node[font=\bfseries\small] at (2.6, 2.2) {T568-B (más común en México)};
+\node[pin, fill=orange!60]          at (0.65,0.7) {};
+\node[pin, fill=orange!90]          at (1.3, 0.7) {};
+\node[pin, fill=green!50]           at (1.95,0.7) {};
+\node[pin, fill=blue!50]            at (2.6, 0.7) {};
+\node[pin, fill=blue!20]            at (3.25,0.7) {};
+\node[pin, fill=green!80]           at (3.9, 0.7) {};
+\node[pin, fill=brown!30]           at (4.55,0.7) {};
+\node[pin, fill=brown!60]           at (5.2, 0.7) {};
+\foreach \i/\n in {1/1,2/2,3/3,4/4,5/5,6/6,7/7,8/8}{
+    \node[font=\footnotesize] at (\i*0.65-0.0, -0.1) {\n};
+}
+\node[font=\tiny, text=gray] at (0.65,0.0) {};
+% Color labels
+\node[font=\tiny, rotate=90, anchor=center] at (0.65,0.7)  {Bl-Nar};
+\node[font=\tiny, rotate=90, anchor=center] at (1.3, 0.7)  {Nar};
+\node[font=\tiny, rotate=90, anchor=center] at (1.95,0.7)  {Bl-Ver};
+\node[font=\tiny, rotate=90, anchor=center] at (2.6, 0.7)  {Azul};
+\node[font=\tiny, rotate=90, anchor=center] at (3.25,0.7)  {Bl-Az};
+\node[font=\tiny, rotate=90, anchor=center] at (3.9, 0.7)  {Verde};
+\node[font=\tiny, rotate=90, anchor=center] at (4.55,0.7)  {Bl-Caf};
+\node[font=\tiny, rotate=90, anchor=center] at (5.2, 0.7)  {Café};
+\end{tikzpicture}
+\end{center}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{clll}
+\toprule
+\textbf{Pin} & \textbf{T568-B} & \textbf{T568-A} & \textbf{Función (10/100)} \\
+\midrule
+1 & Blanco-Naranja & Blanco-Verde  & TX+ (transmisión positivo) \\
+2 & Naranja        & Verde         & TX- (transmisión negativo) \\
+3 & Blanco-Verde   & Blanco-Naranja & RX+ (recepción positivo) \\
+4 & Azul           & Azul          & (no usado en 10/100) \\
+5 & Blanco-Azul    & Blanco-Azul   & (no usado en 10/100) \\
+6 & Verde          & Naranja       & RX- (recepción negativo) \\
+7 & Blanco-Café    & Blanco-Café   & (no usado en 10/100) \\
+8 & Café           & Café          & (no usado en 10/100) \\
+\bottomrule
+\end{tabular}
+\caption{Orden de pines T568-A vs T568-B}
+\end{table}
+
+\begin{ejemplo}
+\textbf{Cable straight-through (conexión directa):}
+Ambos extremos usan el mismo estándar (T568-B). Conecta dispositivos de
+diferente tipo: PC \textrightarrow{} Switch, Switch \textrightarrow{} Router.
+
+\textbf{Cable crossover (cruzado):}
+Un extremo T568-A, el otro T568-B. Los pares TX y RX se invierten.
+Se usa para conectar dispositivos del mismo tipo: PC \textrightarrow{} PC,
+Switch \textrightarrow{} Switch.
+
+\emoji{light-bulb} \textbf{Hoy ya casi no se usa el crossover:} los switches
+y NIC modernos tienen \textbf{Auto-MDI/MDIX} --- detectan automáticamente
+si deben cruzar o no.
+
+\textbf{Gigabit Ethernet (1000BASE-T)} usa los 4 pares (8 hilos) para
+transmisión simultánea en ambas direcciones (full-duplex en cada par).
+\end{ejemplo}
+
+\section{\eh{optical-disk} Fibra Óptica}
+
+\begin{concepto}
+La fibra óptica transmite \textbf{pulsos de luz} en lugar de electricidad.
+Ventajas: inmune a interferencia electromagnética, sin pérdida de señal
+hasta kilómetros, y velocidades de Tbps.
+
+\emoji{light-bulb} \textbf{Analogía:} Si el cable UTP es como hablar por
+teléfono de lata con hilo (señal eléctrica que se degrada con la distancia),
+la fibra es como usar un láser a través de un tubo de cristal perfecto:
+la luz viaja casi sin pérdidas.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{Multimodo (MMF)} & \textbf{Monomodo (SMF)} \\
+\midrule
+Diámetro del núcleo & 50 o 62.5 µm    & 8--10 µm \\
+Fuente de luz       & LED / VCSEL      & Láser diodo \\
+Distancia máxima    & hasta 550 m      & hasta 100+ km \\
+Velocidad típica    & hasta 10 Gbps    & hasta 100 Gbps+ \\
+Costo               & Menor            & Mayor \\
+Color del conector  & Naranja o Aqua   & Amarillo \\
+Uso                 & Dentro de edificios & Entre ciudades, ISP, Data Centers \\
+\bottomrule
+\end{tabular}
+\caption{Fibra multimodo vs monomodo}
+\end{table}
+
+\begin{verbatim}
+   Multimodo                    Monomodo
+   ┌─────────────────┐          ┌─────────────────┐
+   │ núcleo 50/62µm  │ ←muchos  │ núcleo 8-10µm   │ ←un solo
+   │ rayos de luz →  │  modos   │ rayo de luz →   │  modo
+   └─────────────────┘          └─────────────────┘
+   Dispersión modal → límite    Sin dispersión → largas distancias
+   de distancia
+\end{verbatim}
+
+\section{\eh{satellite-antenna} Wi-Fi --- Estándares IEEE 802.11}
+
+\begin{concepto}
+Wi-Fi usa \textbf{ondas de radio} para transmitir datos sin cables.
+Cada generación de 802.11 mejora velocidad, distancia, o eficiencia.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Estándar} & \textbf{Nombre} & \textbf{Frecuencia} & \textbf{Velocidad máx.} & \textbf{Año} \\
+\midrule
+802.11b  & Wi-Fi 1  & 2.4 GHz           & 11 Mbps   & 1999 \\
+802.11g  & Wi-Fi 3  & 2.4 GHz           & 54 Mbps   & 2003 \\
+802.11n  & Wi-Fi 4  & 2.4 / 5 GHz       & 600 Mbps  & 2009 \\
+802.11ac & Wi-Fi 5  & 5 GHz             & 3.5 Gbps  & 2013 \\
+802.11ax & Wi-Fi 6/6E & 2.4 / 5 / 6 GHz & 9.6 Gbps  & 2019 \\
+\textbf{802.11be} & \textbf{Wi-Fi 7} & \textbf{2.4/5/6 GHz} & \textbf{46 Gbps} & \textbf{2024} \\
+\bottomrule
+\end{tabular}
+\caption{Evolución de los estándares Wi-Fi}
+\end{table}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Wi-Fi 7 (802.11be, 2024)} introduce:
+\begin{itemize}
+    \item \textbf{Multi-Link Operation (MLO):} un dispositivo puede transmitir
+          en múltiples bandas \textit{simultáneamente} (ej: 5 GHz y 6 GHz al mismo
+          tiempo). Reduce latencia y duplica throughput efectivo.
+    \item \textbf{Canales de 320 MHz:} el doble que Wi-Fi 6E (160 MHz).
+    \item \textbf{4K-QAM:} modulación más densa, más bits por símbolo.
+    \item \textbf{Latencia $<$1 ms:} clave para gaming, VR/AR, y control industrial.
+    \item Teórico: 46 Gbps (en práctica con clientes reales: 5--15 Gbps).
+\end{itemize}
+\end{moderno}
+
+\section{\eh{toolbox} Cableado Estructurado}
+
+\begin{concepto}
+Un sistema de \textbf{cableado estructurado} es la infraestructura de cables
+y componentes instalada en un edificio de forma organizada según estándares
+internacionales. Está diseñado para durar 15--25 años y soportar cualquier
+tecnología de red futura.
+
+La norma principal: \textbf{ANSI/EIA/TIA-568} (EE.UU.) y su equivalente
+internacional \textbf{ISO/IEC 11801}.
+\end{concepto}
+
+Los \textbf{6 subsistemas} de un sistema de cableado estructurado:
+
+\begin{enumerate}
+    \item \textbf{Cableado horizontal:} del armario de telecomunicaciones
+          al área de trabajo. Máximo 90 m de cable permanente.
+    \item \textbf{Área de trabajo:} jacks RJ-45 en la pared, patch cords
+          del jack al dispositivo (PC, teléfono IP, etc.).
+    \item \textbf{Armario de telecomunicaciones (TR):} patch panels, switches,
+          organizadores de cable. Uno por piso o zona.
+    \item \textbf{Cableado backbone (vertical):} une los armarios entre sí
+          y con la sala de equipos. Usa fibra óptica o UTP Cat 6a+.
+    \item \textbf{Sala de equipos (ER):} servidores, routers, firewalls,
+          equipos de core. Generalmente en sótano o piso dedicado.
+    \item \textbf{Entrada de servicios:} donde el ISP o carrier llega
+          al edificio. Demarc point (punto de demarcación).
+\end{enumerate}
+
+\begin{center}
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
+                minimum height=0.8cm, font=\small, align=center, fill=blue!10},
+    arr/.style={-{Stealth}, thick}
+]
+\node[box, fill=purple!20] (isp)   at (0, 4)   {ISP / Carrier};
+\node[box, fill=orange!20] (er)    at (0, 2.8)  {Sala de Equipos\\(Subsistema 5)};
+\node[box, fill=yellow!20] (back)  at (0, 1.6)  {Backbone Vertical\\(Subsistema 4)};
+\node[box, fill=green!20]  (tr)    at (0, 0.4)  {Armario TR\\(Subsistema 3)};
+\node[box, fill=cyan!20]   (horiz) at (0, -0.8) {Cable Horizontal\\(Subsistema 1)};
+\node[box, fill=gray!15]   (wa)    at (0, -2.0) {Área de Trabajo\\(Subsistema 2)};
+\node[box, fill=red!15]    (ent)   at (3.5,2.8) {Entrada de Servicios\\(Subsistema 6)};
+
+\draw[arr] (isp.south) -- (er.north);
+\draw[arr] (er.south)  -- (back.north);
+\draw[arr] (back.south)-- (tr.north);
+\draw[arr] (tr.south)  -- (horiz.north);
+\draw[arr] (horiz.south)-- (wa.north);
+\draw[arr] (ent.west)  -- (er.east);
+\end{tikzpicture}
+\end{center}
+
+\begin{cuidado}
+\textbf{Límites del cableado horizontal:}
+\begin{itemize}
+    \item Máx. 90 m de cable permanente (de patch panel a jack de pared)
+    \item Máx. 10 m de patch cords (5 m en el TR + 5 m en el área de trabajo)
+    \item Canal total máx: \textbf{100 m}
+\end{itemize}
+Pasarte de 100 m causa errores de señal, retransmisiones y velocidad degradada.
+\end{cuidado}
