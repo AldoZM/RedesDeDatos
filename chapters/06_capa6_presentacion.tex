@@ -1,1 +1,201 @@
-% TODO
+\chapter{\eh{artist-palette} Capa 6 --- Presentación (Presentation Layer)}
+
+\begin{concepto}
+La capa de presentación hace que los datos sean \textbf{entendibles} para la
+capa de aplicación, sin importar cómo los representa internamente el sistema
+que los envió. Sus tres funciones:
+\begin{enumerate}
+    \item \textbf{Traducción / Codificación:} convertir entre formatos (ASCII, Unicode, EBCDIC)
+    \item \textbf{Compresión:} reducir tamaño antes de transmitir
+    \item \textbf{Cifrado/Descifrado:} proteger datos en tránsito (TLS vive aquí)
+\end{enumerate}
+\end{concepto}
+
+\section{\eh{input-latin-letters} Codificación de Caracteres}
+
+\begin{concepto}
+Los caracteres son números. Una \textbf{codificación} define qué número
+corresponde a qué carácter.
+
+\emoji{light-bulb} \textbf{Analogía:} Es como tener diferentes sistemas de
+escritura. El número 65 en ASCII es ``A''. En EBCDIC (IBM) el 65 es ``\&''.
+Si dos sistemas no hablan la misma codificación, el texto parece basura.
+(¿Recuerdas los mensajes con ``Ã±'' en vez de ``ñ''? Eso es.)
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Codificación} & \textbf{Tamaño} & \textbf{Cobertura} & \textbf{Estado} \\
+\midrule
+ASCII    & 7 bits (1 byte)    & Solo inglés (128 chars)      & Obsoleto para texto internacional \\
+Latin-1  & 8 bits (1 byte)    & Europa occidental (256 chars) & Obsoleto \\
+UTF-8    & 1--4 bytes (var.)  & Todo Unicode (1.1M+ chars)   & Estándar web actual \\
+UTF-16   & 2--4 bytes         & Todo Unicode                  & Windows interno, Java \\
+UTF-32   & 4 bytes fijos      & Todo Unicode                  & Raro, desperdicia espacio \\
+\bottomrule
+\end{tabular}
+\caption{Codificaciones de caracteres}
+\end{table}
+
+\begin{ejemplo}
+La letra ``\textbf{ñ}'' (U+00F1) en diferentes codificaciones:
+\begin{itemize}
+    \item \textbf{UTF-8:} \texttt{0xC3 0xB1} (2 bytes)
+    \item \textbf{UTF-16:} \texttt{0x00F1} (2 bytes)
+    \item \textbf{ASCII:} No existe --- \textit{por eso el correo ``Manana'' sin ñ}
+    \item \textbf{Latin-1:} \texttt{0xF1} (1 byte)
+\end{itemize}
+UTF-8 es \textbf{compatible con ASCII} para los primeros 128 caracteres.
+Todo archivo ASCII válido es automáticamente UTF-8 válido.
+\end{ejemplo}
+
+\section{\eh{file-folder} Serialización de Datos}
+
+\begin{concepto}
+\textbf{Serialización} convierte estructuras de datos en memoria a bytes
+que se pueden transmitir o almacenar.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Formato} & \textbf{Tipo} & \textbf{Legible} & \textbf{Tamaño relativo} & \textbf{Uso} \\
+\midrule
+JSON        & Texto   & Sí  & Mediano   & APIs REST, configuraciones \\
+XML         & Texto   & Sí  & Grande    & Legacy, SOAP, SVG \\
+YAML        & Texto   & Sí  & Mediano   & Kubernetes, Docker Compose \\
+Protobuf    & Binario & No  & Pequeño   & gRPC, microservicios \\
+MessagePack & Binario & No  & Muy peq.  & IoT, gaming real-time \\
+CBOR        & Binario & No  & Pequeño   & IoT, IETF estándar \\
+\bottomrule
+\end{tabular}
+\caption{Formatos de serialización de datos}
+\end{table}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Protocol Buffers (Protobuf)} --- creado por Google (2008, open source 2011):
+
+El mismo dato ``usuario con nombre y edad'' ocupa:
+\begin{itemize}
+    \item JSON: \texttt{\{"name":"Aldo","age":22\}} = \textbf{23 bytes}
+    \item Protobuf: campo 1 (name) + campo 2 (age) en binario = \textbf{9 bytes}
+\end{itemize}
+3--10x más compacto. 5--10x más rápido de parsear. No necesita schema parser
+en tiempo de ejecución. Requiere un archivo \texttt{.proto} con la definición.
+Usado por gRPC, YouTube, Google Maps, Android internamente.
+\end{moderno}
+
+\section{\eh{locked} TLS / SSL --- Transport Layer Security}
+
+\begin{concepto}
+\textbf{TLS} (y su predecesor SSL) cifra la comunicación entre cliente y servidor.
+HTTPS = HTTP + TLS. Es lo que hace aparecer el candado en el navegador.
+
+\emoji{light-bulb} \textbf{Analogía:} TLS es como un sobre sellado con firma
+holográfica. El sobre garantiza que nadie lo abrió (\textbf{integridad}),
+la firma verifica quién lo mandó (\textbf{autenticación}), y el contenido
+está en código secreto que solo el destinatario puede leer (\textbf{confidencialidad}).
+\end{concepto}
+
+\subsection{Evolución de SSL/TLS}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Versión} & \textbf{Año} & \textbf{Estado} \\
+\midrule
+SSL 2.0  & 1995 & \emoji{skull} Prohibido (RFC 6176) \\
+SSL 3.0  & 1996 & \emoji{skull} Prohibido (POODLE attack, RFC 7568) \\
+TLS 1.0  & 1999 & \emoji{skull} Deprecated (RFC 8996, 2021) \\
+TLS 1.1  & 2006 & \emoji{skull} Deprecated (RFC 8996, 2021) \\
+TLS 1.2  & 2008 & \emoji{warning} Permitido, en transición \\
+TLS 1.3  & 2018 & \emoji{check-mark-button} Estándar recomendado \\
+\bottomrule
+\end{tabular}
+\caption{Versiones SSL/TLS}
+\end{table}
+
+\subsection{TLS 1.2 vs TLS 1.3}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{TLS 1.2} & \textbf{TLS 1.3 (RFC 8446)} \\
+\midrule
+Handshake             & 2 RTT             & \textbf{1 RTT} \\
+0-RTT resumption      & No                & \emoji{check-mark-button} Sí \\
+Cipher suites         & 37 (algunas débiles) & 5 (todas seguras) \\
+RSA key exchange      & Permitido         & \emoji{cross-mark} Eliminado \\
+Perfect Forward Secrecy & Opcional        & \textbf{Obligatorio} \\
+Compresión TLS        & Sí (CRIME attack) & \emoji{cross-mark} Eliminada \\
+\bottomrule
+\end{tabular}
+\caption{TLS 1.2 vs TLS 1.3}
+\end{table}
+
+\subsection{Handshake TLS 1.3 simplificado}
+
+\begin{verbatim}
+  Cliente                         Servidor
+     │─── ClientHello ──────────►│  (versiones soportadas, key_share,
+     │                            │   cipher suites)
+     │◄── ServerHello ────────────│  (versión elegida, key_share del servidor)
+     │                            │  (ambos calculan el shared secret con ECDHE)
+     │◄── {EncryptedExtensions} ──│  (todo lo siguiente está CIFRADO)
+     │◄── {Certificate}  ─────────│  (certificado X.509 del servidor)
+     │◄── {CertificateVerify} ────│  (firma del servidor con su clave privada)
+     │◄── {Finished} ─────────────│
+     │─── {Finished} ────────────►│
+     │═══════════ Application Data ════════════│
+\end{verbatim}
+
+\begin{cuidado}
+\textbf{Perfect Forward Secrecy (PFS):} TLS 1.3 usa \textbf{ECDHE} para el
+intercambio de claves. Esto significa que incluso si la clave privada del
+servidor es robada \textit{en el futuro}, el tráfico de hoy \textbf{no puede
+ser descifrado} --- porque las claves de sesión son efímeras y nunca se almacenan.
+
+TLS 1.2 con RSA key exchange \textit{no} tiene PFS: si alguien captura
+el tráfico hoy y roba la clave privada mañana, puede descifrar todo.
+\end{cuidado}
+
+\section{\eh{zipper-mouth-face} Certificados X.509 y PKI}
+
+\begin{concepto}
+Un \textbf{certificado X.509} es un documento digital que prueba la identidad
+de un servidor. Contiene: nombre del dominio, clave pública, quién lo firmó,
+y hasta cuándo es válido.
+
+La \textbf{PKI} (Public Key Infrastructure) es el sistema de confianza:
+tu navegador confía en un conjunto de \textbf{Certificate Authorities (CAs)}
+raíz. Cuando visitas \texttt{google.com}, el certificado está firmado por
+una CA de confianza → el navegador muestra el candado.
+\end{concepto}
+
+\begin{verbatim}
+  Cadena de confianza (Certificate Chain):
+
+  Root CA (en tu navegador/OS)
+      └─── Intermediate CA (firma al servidor)
+                └─── Certificado del servidor (google.com)
+                         ├── Subject: CN=google.com
+                         ├── Public Key: (clave pública del servidor)
+                         ├── Valid: 2024-01-01 a 2025-01-01
+                         └── Signature: (firmado por Intermediate CA)
+\end{verbatim}
+
+\begin{ejemplo}
+\textbf{Let's Encrypt} (2015): CA gratuita y automatizada. Democratizó HTTPS.
+Antes de Let's Encrypt, un certificado costaba \$100--\$500/año. Hoy, con el
+protocolo ACME y el cliente Certbot, cualquier servidor puede obtener
+un certificado válido en minutos y renovarlo automáticamente.
+\end{ejemplo}

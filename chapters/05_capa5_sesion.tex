@@ -1,1 +1,143 @@
-% TODO
+\chapter{\eh{handshake} Capa 5 --- Sesión (Session Layer)}
+
+\begin{concepto}
+La capa de sesión establece, gestiona y termina \textbf{sesiones} de
+comunicación entre aplicaciones. Se encarga de sincronizar el diálogo,
+controlar quién habla cuándo, y manejar puntos de control (checkpoints)
+para reanudar sesiones interrumpidas.
+
+\emoji{warning} \textbf{Nota sobre clasificación:} SSH, NetBIOS y otros protocolos
+que ``viven'' en capa 5 son a veces clasificados en capa 7 por otras fuentes.
+En la práctica real, los protocolos no siguen OSI perfectamente. Lo importante
+es entender qué hace cada protocolo, no en qué caja exacta meterlo.
+\end{concepto}
+
+\section{\eh{locked-with-key} SSH --- Secure Shell (RFC 4251--4254)}
+
+\begin{concepto}
+\textbf{SSH} proporciona acceso remoto seguro a sistemas. Todo el tráfico
+está \textbf{cifrado}: contraseñas, comandos, y respuestas. Reemplazó
+completamente a Telnet y rlogin.
+
+\emoji{light-bulb} \textbf{Analogía:} Telnet es como hablar en voz alta
+en un café lleno de gente --- cualquiera escucha tu contraseña.
+SSH es como estar en una cabina de sonido insonorizada y con candado:
+solo tú y el servidor saben qué se dijo.
+\end{concepto}
+
+\subsection{SSH vs Telnet}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{Telnet} & \textbf{SSH} \\
+\midrule
+Puerto          & 23              & 22 \\
+Cifrado         & \emoji{cross-mark} Ninguno & \emoji{check-mark-button} Sí (AES, ChaCha20) \\
+Autenticación   & Contraseña en texto claro & Clave pública o contraseña cifrada \\
+Integridad      & \emoji{cross-mark} No    & \emoji{check-mark-button} HMAC \\
+Seguridad       & \emoji{skull} Inseguro   & \emoji{shield} Seguro \\
+Estado actual   & Obsoleto, no usar         & Estándar de la industria \\
+\bottomrule
+\end{tabular}
+\caption{Comparativa SSH vs Telnet}
+\end{table}
+
+\subsection{Arquitectura SSH (3 protocolos en uno)}
+
+SSH se compone de 3 sub-protocolos apilados:
+\begin{enumerate}
+    \item \textbf{SSH Transport Layer (RFC 4253):} establece la conexión TCP,
+          negocia algoritmos y realiza el key exchange (Diffie-Hellman).
+    \item \textbf{SSH Authentication Protocol (RFC 4252):} autentica al usuario
+          con contraseña o clave pública.
+    \item \textbf{SSH Connection Protocol (RFC 4254):} multiplexa múltiples
+          canales sobre la conexión segura (sesión de terminal, port forwarding, SFTP).
+\end{enumerate}
+
+\subsection{Proceso de conexión SSH}
+
+\begin{verbatim}
+  Cliente                         Servidor
+     │──── TCP SYN ──────────────►│
+     │◄─── TCP SYN-ACK ───────────│
+     │──── TCP ACK ──────────────►│
+     │                            │
+     │◄─── SSH-2.0-OpenSSH_x.x ──│  (identificación de versión)
+     │──── SSH-2.0-OpenSSH_x.x ──►│
+     │                            │
+     │◄─── Server Key Exchange ───│  (algoritmos + Diffie-Hellman params)
+     │──── Client Key Exchange ──►│  (valor DH público del cliente)
+     │                            │  (ambos calculan el shared secret)
+     │◄─── New Keys ──────────────│  (todo lo siguiente va cifrado)
+     │──── New Keys ─────────────►│
+     │                            │
+     │──── [ENC] auth request ───►│  (usuario + método de auth)
+     │◄─── [ENC] auth success ────│
+     │                            │
+     │──── [ENC] channel open ───►│  (abrir sesión de terminal)
+     │◄─── [ENC] channel conf ────│
+     │═══════ Sesión cifrada ══════│
+\end{verbatim}
+
+\subsection{Autenticación por clave pública}
+
+\begin{concepto}
+Más segura que contraseña porque la clave privada \textit{nunca} sale de
+tu máquina. Basada en criptografía asimétrica: lo que una clave cifra,
+solo la otra puede descifrar.
+\end{concepto}
+
+\begin{enumerate}
+    \item Generas un par de claves: \texttt{ssh-keygen -t ed25519 -C "tu@email.com"}
+    \item Clave pública (\texttt{\textasciitilde/.ssh/id\_ed25519.pub}) → va al servidor
+          en \texttt{\textasciitilde/.ssh/authorized\_keys}
+    \item Al conectar: el servidor cifra un desafío aleatorio con tu clave pública
+    \item Tu cliente lo descifra con la clave privada y responde
+    \item Sin contraseña que viajar por la red → sin riesgo de captura
+\end{enumerate}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Algoritmo} & \textbf{Bits} & \textbf{Nota} \\
+\midrule
+RSA       & 2048--4096  & Antiguo, funciona bien pero lento \\
+ECDSA     & 256--521    & Más rápido que RSA, elliptic curve \\
+Ed25519   & 256 (equiv) & Recomendado hoy: más rápido, más seguro \\
+\bottomrule
+\end{tabular}
+\caption{Algoritmos de clave pública en SSH}
+\end{table}
+
+\subsection{Port Forwarding con SSH}
+
+\begin{codigo}
+\begin{lstlisting}
+# Local forwarding: acceder puerto remoto como si fuera local
+# Acceder MySQL (puerto 3306) de servidor remoto como localhost:3307
+ssh -L 3307:localhost:3306 usuario@servidor.com
+
+# Remote forwarding: exponer puerto local hacia el servidor remoto
+ssh -R 8080:localhost:3000 usuario@servidor.com
+
+# Dynamic forwarding: SSH como proxy SOCKS5
+ssh -D 1080 usuario@servidor.com
+\end{lstlisting}
+\end{codigo}
+
+\section{\eh{left-right-arrow} NetBIOS y SMB}
+
+\begin{concepto}
+\textbf{NetBIOS} (Network Basic Input/Output System) proporciona servicios
+de nombres y sesiones en redes Windows locales. No es routable por IP
+--- solo funciona en la LAN.
+
+\textbf{SMB} (Server Message Block) usa NetBIOS (o directamente TCP/IP en SMB2+)
+para compartir archivos, impresoras y recursos en redes Windows.
+Puerto: 445 (SMB directo) o 139 (SMB sobre NetBIOS).
+\end{concepto}
