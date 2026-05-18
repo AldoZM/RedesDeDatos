@@ -1,1 +1,574 @@
-% TODO
+\chapter{\eh{rocket} Protocolos Modernos y Tecnologías Google}
+
+\begin{concepto}
+La web de hoy es radicalmente distinta a la de los años 90. Los protocolos
+que estudiamos en capítulos anteriores (TCP, HTTP/1.1) tienen décadas de
+antigüedad y muestran su edad bajo la carga del internet moderno.
+
+Este capítulo cubre la próxima generación: protocolos diseñados para
+redes móviles, streaming de video en 4K, videollamadas en tiempo real,
+y los sistemas distribuidos masivos de Google, Meta y Cloudflare.
+\end{concepto}
+
+\section{\eh{zap} QUIC --- Quick UDP Internet Connections (RFC 9000)}
+
+\begin{concepto}
+\textbf{QUIC} es un protocolo de transporte sobre \textbf{UDP} que combina
+lo mejor de TCP + TLS en un solo handshake. Desarrollado por Google en 2012,
+estandarizado por IETF en 2021 (RFC 9000).
+
+\emoji{light-bulb} \textbf{Analogía:} TCP es como llamar a un banco
+--- tienes que autenticarte, esperar verificación, y solo entonces
+hablar. QUIC es como un banco con ``acceso rápido'' donde te reconocen
+de visitas anteriores y entras directo al grano.
+\end{concepto}
+
+\subsection{El problema que QUIC resuelve}
+
+TCP tiene problemas fundamentales con el internet moderno:
+
+\begin{itemize}
+    \item \textbf{Handshake lento:} TCP (1 RTT) + TLS 1.2 (2 RTT) = 3 RTTs antes
+          del primer byte de datos. En móviles con 100ms de latencia: 300ms
+          de espera solo para empezar.
+    \item \textbf{HOL Blocking a nivel TCP:} HTTP/2 resolvió el HOL a nivel
+          de aplicación con multiplexing, pero si un paquete TCP se pierde,
+          \textit{todos} los streams quedan bloqueados en el buffer.
+    \item \textbf{Ossification:} middleboxes (NATs, firewalls) han ``osificado''
+          TCP --- no puedes cambiar el protocolo TCP porque millones de
+          dispositivos en el mundo asumen comportamiento específico.
+\end{itemize}
+
+\subsection{Solución QUIC}
+
+\begin{verbatim}
+  TCP + TLS 1.2:
+    ├── TCP SYN / SYN-ACK / ACK       (1 RTT)
+    ├── TLS ClientHello / ServerHello  (1 RTT)
+    ├── TLS Certificate / Finished     (1 RTT)
+    └── Primera petición HTTP          (1 RTT) = 4 RTTs en total
+
+  QUIC (primera conexión):
+    ├── QUIC Initial (transport + TLS crypto combinados)  (1 RTT)
+    └── Primera petición HTTP/3                           (1 RTT) = 2 RTTs
+
+  QUIC (conexión repetida con 0-RTT):
+    └── Request + datos inmediatamente                   = 0 RTTs extra
+\end{verbatim}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{TCP + TLS} & \textbf{QUIC} \\
+\midrule
+Protocolo base      & IP                    & UDP \\
+Handshake           & 3 RTTs (TCP+TLS)      & 1 RTT (combinado) \\
+0-RTT resumption    & \emoji{cross-mark} No & \emoji{check-mark-button} Sí \\
+HOL Blocking        & Nivel TCP y app       & Solo nivel stream (no cross-stream) \\
+Cifrado             & TLS separado          & TLS 1.3 integrado, obligatorio \\
+Migración de red    & Reinicia conexión     & \emoji{check-mark-button} Connection ID, sobrevive \\
+\bottomrule
+\end{tabular}
+\caption{TCP+TLS vs QUIC}
+\end{table}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Connection Migration:} si cambias de Wi-Fi a 4G mientras
+descargas un archivo, TCP reinicia la conexión (el socket es IP:puerto). QUIC usa
+un \textbf{Connection ID} opaco, independiente de la IP. Tu descarga continúa
+sin interrupciones. YouTube en Android lleva usando esto desde 2013.
+\end{moderno}
+
+\begin{cuidado}
+\textbf{Por qué UDP y no un nuevo protocolo?} Los routers y firewalls están
+programados en hardware para TCP/UDP --- añadir un Layer 4 nuevo tomaría
+décadas en desplegarse. UDP actúa como contenedor neutral que el hardware
+ya conoce; QUIC construye todas las garantías encima.
+\end{cuidado}
+
+\section{\eh{globe-with-meridians} HTTP/3 (RFC 9114)}
+
+\begin{concepto}
+\textbf{HTTP/3} = HTTP/2 semántica + QUIC como transporte. No es solo
+``HTTP sobre UDP'' --- es una reescritura completa del stack.
+
+Adoptado por: Google (100\% del tráfico de YouTube), Cloudflare, Meta,
+Shopify. Ya representa \textbf{$\sim$30\% del tráfico web global} (2024).
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+\toprule
+\textbf{Versión} & \textbf{Año} & \textbf{Transporte} & \textbf{Clave} \\
+\midrule
+HTTP/1.1 & 1999 & TCP  & Texto plano, pipeline con HOL \\
+HTTP/2   & 2015 & TCP  & Multiplexing binario, HPACK, server push \\
+HTTP/3   & 2022 & QUIC & Sin HOL TCP, 0-RTT, connection migration \\
+\bottomrule
+\end{tabular}
+\caption{Evolución de HTTP}
+\end{table}
+
+\subsection{QPACK --- Compresión de headers en HTTP/3}
+
+HTTP/2 usa HPACK para comprimir headers --- funciona bien sobre TCP donde
+el orden está garantizado. QUIC entrega paquetes fuera de orden (streams
+independientes), así que HPACK rompería si un paquete de tabla llega tarde.
+
+\textbf{QPACK} (RFC 9204) resuelve esto: permite compresión de headers
+sin bloqueo inter-stream. Usa una tabla estática predefinida y una tabla
+dinámica con control de riesgo de bloqueo.
+
+\section{\eh{satellite-antenna} gRPC --- Google Remote Procedure Call}
+
+\begin{concepto}
+\textbf{gRPC} es un framework de \textit{Remote Procedure Call} (RPC) de alto
+rendimiento. Desarrollado por Google (2015, open source). Sobre HTTP/2 con
+Protocol Buffers para serialización.
+
+\emoji{light-bulb} \textbf{Analogía:} REST es como mandar un email con
+instrucciones en JSON (texto, lento de parsear). gRPC es como hablar
+directamente por teléfono en un idioma optimizado: binario, rápido,
+con definición de tipos estricta.
+\end{concepto}
+
+\subsection{REST vs gRPC}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{REST/JSON} & \textbf{gRPC/Protobuf} \\
+\midrule
+Serialización   & JSON texto plano      & Protobuf binario \\
+Velocidad parse & Lento                 & 5--10x más rápido \\
+Tamaño payload  & Mediano               & 3--10x más pequeño \\
+Tipado          & Ninguno en runtime    & Estricto (schema .proto) \\
+Streaming       & Manual (SSE/WebSocket)& Nativo (server/client/bidi) \\
+HTTP version    & HTTP/1.1 o HTTP/2     & HTTP/2 (requerido) \\
+Browser native  & \emoji{check-mark-button} Sí & \emoji{cross-mark} No (necesita grpc-web) \\
+Uso             & APIs públicas         & Microservicios internos \\
+\bottomrule
+\end{tabular}
+\caption{REST vs gRPC}
+\end{table}
+
+\subsection{Tipos de streaming en gRPC}
+
+\begin{verbatim}
+  1. Unary (request-response normal):
+     cliente ──── Request ────► servidor
+     cliente ◄─── Response ─── servidor
+
+  2. Server Streaming (servidor manda muchos mensajes):
+     cliente ──── Request ────► servidor
+     cliente ◄─── Message 1 ── servidor
+     cliente ◄─── Message 2 ── servidor
+     (útil: stock ticker, logs en vivo)
+
+  3. Client Streaming (cliente manda muchos mensajes):
+     cliente ──── Chunk 1 ────► servidor
+     cliente ──── Chunk 2 ────► servidor
+     cliente ◄─── Response ─── servidor
+     (útil: upload de archivos grandes)
+
+  4. Bidirectional Streaming:
+     cliente ◄──► servidor
+     (útil: chat, videojuegos en tiempo real)
+\end{verbatim}
+
+\begin{moderno}
+\textbf{\emoji{rocket} gRPC en Google:} internamente, Google tiene más de
+10 billones de RPCs por segundo usando gRPC/Stubby entre sus microservicios.
+Google Maps, Google Photos, Gmail: todos se comunican internamente con este
+protocolo. YouTube usa gRPC para coordinar entre sus 100+ microservicios.
+\end{moderno}
+
+\begin{codigo}
+\begin{lstlisting}
+// Archivo .proto: define la API como código
+syntax = "proto3";
+
+service UsuarioService {
+    rpc GetUsuario(UsuarioRequest) returns (UsuarioResponse);
+    rpc StreamNoticias(Empty) returns (stream Noticia);
+}
+
+message UsuarioRequest { int32 id = 1; }
+message UsuarioResponse {
+    int32 id = 1;
+    string nombre = 2;
+    string email = 3;
+}
+\end{lstlisting}
+\end{codigo}
+
+\section{\eh{racing-car} BBR --- Bottleneck Bandwidth and RTT}
+
+\begin{concepto}
+\textbf{BBR} es un algoritmo de control de congestión TCP desarrollado por
+Google (2016). Reemplaza CUBIC en los servidores de Google. La diferencia
+es filosófica: CUBIC reacciona a pérdida de paquetes; BBR modela físicamente
+la red.
+\end{concepto}
+
+\subsection{El problema con CUBIC}
+
+CUBIC y su predecesor RENO asumen que pérdida de paquete = congestión.
+Esto funcionaba en redes cableadas de los 90. Problemas modernos:
+
+\begin{itemize}
+    \item \textbf{Buferbloat:} routers modernos tienen buffers enormes.
+          Cuando el buffer está lleno, el RTT se dispara pero no hay pérdida
+          --- CUBIC sigue enviando rápido, y la latencia es terrible.
+    \item \textbf{WiFi y LTE:} pierden paquetes por interferencia (no congestión)
+          --- CUBIC frena innecesariamente.
+    \item \textbf{Links transcontinentales:} alta capacidad pero alta latencia,
+          subexplotados por CUBIC.
+\end{itemize}
+
+\subsection{Cómo funciona BBR}
+
+BBR modela dos parámetros físicos de la red:
+\begin{enumerate}
+    \item \textbf{BtlBw (Bottleneck Bandwidth):} máxima tasa de entrega observada
+          --- qué tan rápido puede la red en realidad?
+    \item \textbf{RTprop (Round-Trip propagation time):} RTT mínimo observado
+          --- cuánto tarda la señal, sin congestión?
+\end{enumerate}
+
+\begin{verbatim}
+  Operación ideal = BtlBw × RTprop
+  (Ecuación de bandwidth-delay product)
+
+  Si envías MÁS rápido que BtlBw  → llenas buffers → mayor RTT → latencia
+  Si envías MÁS lento que BtlBw   → desperdicias capacidad
+
+  BBR se mantiene justo en el punto óptimo, midiendo constantemente.
+\end{verbatim}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Resultados reales de BBR en Google:}
+\begin{itemize}
+    \item Google.com: \textbf{4\% más rápido} globalmente
+    \item YouTube: \textbf{14\% menos buffering} en el mundo
+    \item Brasil (alta latencia): \textbf{6x más throughput} con BBR vs CUBIC
+    \item Con 1\% de pérdida aleatoria: BBR tiene \textbf{800x más
+          throughput} que CUBIC
+\end{itemize}
+BBR v3 (2023) está llegando a Linux kernel 6.x y Android.
+QUIC usa BBR por defecto.
+\end{moderno}
+
+\section{\eh{telephone-receiver} WebRTC --- Web Real-Time Communication}
+
+\begin{concepto}
+\textbf{WebRTC} (RFC 8825) permite comunicación peer-to-peer de audio,
+video y datos directamente en el navegador, sin plugins. Google lo compró
+(GlobalIPSolutions, 2010) y lo donó al W3C.
+
+Es lo que usan: Google Meet, Discord, Facebook Messenger, Jitsi.
+\end{concepto}
+
+\subsection{Stack de protocolos WebRTC}
+
+\begin{verbatim}
+  ┌──────────────────────────────────────────────┐
+  │              Tu aplicación                    │
+  ├──────────────────────────────────────────────┤
+  │  Audio/Video: Opus + VP8/VP9/AV1/H.264        │
+  ├──────────────────────────────────────────────┤
+  │    SRTP --- Secure Real-time Transport        │
+  ├──────────────────────────────────────────────┤
+  │    DTLS --- Datagram TLS (TLS sobre UDP)      │
+  ├──────────────────────────────────────────────┤
+  │    ICE --- Interactive Connectivity           │
+  │    (coordina STUN y TURN para NAT traversal)  │
+  ├──────────────────────────────────────────────┤
+  │            UDP (o TCP como fallback)          │
+  └──────────────────────────────────────────────┘
+\end{verbatim}
+
+\subsection{ICE, STUN y TURN --- NAT Traversal}
+
+La mayoría de dispositivos están detrás de NAT. Para una videollamada
+peer-to-peer, los dos peers deben encontrarse, pero ninguno conoce la
+IP pública del otro.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Protocolo} & \textbf{Función} & \textbf{Cuándo} \\
+\midrule
+STUN & Descubre tu IP pública y puerto NAT & Siempre, primero \\
+TURN & Relay de tráfico por servidor intermedio & Cuando P2P falla \\
+ICE  & Prueba todos los candidatos y elige el mejor & Coordina todo \\
+\bottomrule
+\end{tabular}
+\caption{ICE/STUN/TURN en WebRTC}
+\end{table}
+
+\begin{ejemplo}
+\textbf{Por qué DTLS y no TLS?} TLS requiere TCP (streams ordenados).
+WebRTC usa UDP para baja latencia en video. DTLS es TLS adaptado para UDP:
+maneja retransmisiones de handshake, pero una vez establecido, el
+cifrado funciona packet-by-packet sin esperar orden.
+Audio/video perdido es aceptable; una llamada con 200ms de latencia, no.
+\end{ejemplo}
+
+\section{\eh{magnifying-glass-tilted-left} DoH y DoQ --- DNS moderno}
+
+\begin{concepto}
+DNS clásico viaja en texto claro sobre UDP puerto 53. Cualquiera en tu
+red (tu ISP, un café con Wi-Fi malicioso) puede ver todos tus
+queries DNS: cada sitio que intentas visitar, antes de que cargue.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{llll}
+\toprule
+\textbf{Protocolo} & \textbf{Puerto} & \textbf{Sobre} & \textbf{Adoptado por} \\
+\midrule
+DNS clásico         & 53 (UDP/TCP) & Texto claro & Todos (legacy) \\
+DoT (DNS over TLS)  & 853          & TCP + TLS   & Android 9+, iOS \\
+DoH (DNS over HTTPS)& 443          & HTTPS       & Firefox, Chrome, Cloudflare \\
+DoQ (DNS over QUIC) & 853          & QUIC        & En adopción (RFC 9250) \\
+\bottomrule
+\end{tabular}
+\caption{Evolución del DNS cifrado}
+\end{table}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Cloudflare 1.1.1.1:} resolver DNS público más
+rápido del mundo (lanzado 2018). Usa DoH y DoT. Promete no registrar
+IPs de usuarios. Tiene \textbf{1.1.1.2} con filtrado de malware y
+\textbf{1.1.1.3} con filtrado adicional. Google ofrece \textbf{8.8.8.8}
+con las mismas capacidades. Ambos tienen latencia $<$10ms desde México.
+\end{moderno}
+
+\begin{cuidado}
+\textbf{DoH y privacidad:} DoH oculta tus queries de la red local, pero
+el resolver (Cloudflare, Google) sí ve todo. Cambias de que te espíe
+tu ISP a que te espíe Cloudflare. Evalúa en qué entidad confías más.
+\end{cuidado}
+
+\section{\eh{eye} ECH --- Encrypted Client Hello}
+
+\begin{concepto}
+Con HTTPS el contenido está cifrado. Pero el \textbf{Server Name
+Indication (SNI)} --- el nombre del dominio que visitas --- viaja en
+\textbf{texto claro} en el ClientHello de TLS. Tu ISP o un firewall
+pueden saber exactamente qué sitio visitas aunque uses HTTPS.
+
+\textbf{ECH} (Encrypted Client Hello) cifra el SNI usando la clave
+pública del servidor, publicada en DNS (registro HTTPS).
+\end{concepto}
+
+\begin{verbatim}
+  Sin ECH:
+  ClientHello {
+    server_name: "ejemplo-bloqueado.com"   <- VISIBLE en texto claro
+    ...datos cifrados...
+  }
+
+  Con ECH:
+  ClientHello (outer) {
+    server_name: "cloudflare-esni.com"     <- dominio genérico (visible)
+    encrypted_client_hello: [              <- inner ClientHello cifrado
+      server_name: "ejemplo.com"           <- real, CIFRADO
+      ...
+    ]
+  }
+\end{verbatim}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Adopción:} Firefox habilitó ECH por defecto en 2023.
+Chrome lo tiene desde 2024. Cloudflare soporta ECH para todos sus dominios.
+Cuando ECH esté universalmente adoptado, los firewalls censores por SNI
+serán inefectivos sin interceptar la clave privada del servidor.
+\end{moderno}
+
+\section{\eh{satellite-antenna} Wi-Fi 7 --- IEEE 802.11be}
+
+\begin{concepto}
+\textbf{Wi-Fi 7} (802.11be) fue aprobado como estándar en 2024. La mejora
+más revolucionaria: \textbf{Multi-Link Operation (MLO)}.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Estándar} & \textbf{Wi-Fi} & \textbf{Año} & \textbf{Max teórico} & \textbf{Bandas} \\
+\midrule
+802.11n  & Wi-Fi 4   & 2009      & 600 Mbps          & 2.4 + 5 GHz \\
+802.11ac & Wi-Fi 5   & 2013      & 3.5 Gbps          & 5 GHz \\
+802.11ax & Wi-Fi 6/6E & 2019/2021 & 9.6 Gbps         & 2.4+5+6 GHz \\
+802.11be & Wi-Fi 7   & 2024      & \textbf{46 Gbps}  & 2.4+5+6 GHz ampliado \\
+\bottomrule
+\end{tabular}
+\caption{Evolución Wi-Fi}
+\end{table}
+
+\subsection{Multi-Link Operation (MLO)}
+
+\begin{itemize}
+    \item \textbf{Wi-Fi 4/5/6:} tu dispositivo conecta a \textit{una} banda a la vez
+          (2.4 GHz O 5 GHz). Si hay interferencia, migras entre bandas.
+    \item \textbf{Wi-Fi 7 con MLO:} conecta a \textit{múltiples bandas simultáneamente}
+          (2.4 + 5 + 6 GHz en paralelo real).
+\end{itemize}
+
+\begin{verbatim}
+  MLO en acción:
+
+  Dispositivo Wi-Fi 7            Router Wi-Fi 7
+    link 2.4 GHz ─────────────────────────►
+    link 5.0 GHz ─────────────────────────►
+    link 6.0 GHz ─────────────────────────►
+
+  El sistema elige dinámicamente qué paquete va por qué link
+  según congestión e interferencia. Si 5 GHz tiene interferencia,
+  automáticamente usa 6 GHz sin interrupción de la conexión.
+\end{verbatim}
+
+Beneficios de MLO:
+\begin{itemize}
+    \item \textbf{Latencia reducida:} datos urgentes van por el link más libre
+    \item \textbf{Confiabilidad:} si un link falla, los otros continúan
+    \item \textbf{Mayor throughput:} agregación real de múltiples links
+\end{itemize}
+
+\begin{moderno}
+\textbf{\emoji{rocket} 320 MHz de ancho de banda:} Wi-Fi 6 usa hasta 160 MHz.
+Wi-Fi 7 usa hasta \textbf{320 MHz} (solo en 6 GHz). Con 4096-QAM y
+16 antenas MIMO, alcanza 46 Gbps teóricos. En la práctica, espera
+5--10 Gbps en condiciones reales --- suficiente para decenas de streams
+de 8K simultáneos.
+\end{moderno}
+
+\section{\eh{shield} WireGuard --- VPN Moderna}
+
+\begin{concepto}
+\textbf{WireGuard} (2015) es un protocolo VPN extremadamente simple y
+rápido. Comparado con OpenVPN (2001) y IPsec: código mucho más pequeño,
+criptografía moderna obligatoria, y velocidad cercana a wireline.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+\toprule
+\textbf{Característica} & \textbf{OpenVPN} & \textbf{IPsec} & \textbf{WireGuard} \\
+\midrule
+Líneas de código    & $\sim$70,000   & $\sim$400,000  & \textbf{$\sim$4,000} \\
+Protocolo base      & TCP o UDP      & IP directo     & UDP \\
+Cripto obligatoria  & Configurable   & Configurable   & \textbf{Fija, moderna} \\
+Handshake           & Lento (TLS)    & IKEv2          & Rápido (1-RTT) \\
+Kernel integration  & Userspace      & Parcial        & \textbf{Linux kernel 5.6+} \\
+\bottomrule
+\end{tabular}
+\caption{Comparativa VPN}
+\end{table}
+
+WireGuard usa exclusivamente:
+\begin{itemize}
+    \item \textbf{ChaCha20-Poly1305:} cifrado simétrico (rápido en móviles sin AES-NI)
+    \item \textbf{Curve25519:} Diffie-Hellman para intercambio de claves
+    \item \textbf{BLAKE2s:} función hash
+    \item \textbf{SipHash24:} para la tabla de routing interna
+\end{itemize}
+
+No hay negociación de cifrado --- elimina ataques de downgrade de criptografía.
+
+\begin{moderno}
+\textbf{\emoji{rocket} WireGuard en producción:} integrado en Linux kernel 5.6
+(2020), Android 12+, iOS 15+. Cloudflare usa WireGuard en su servicio
+WARP (1.1.1.1 VPN). En benchmarks, WireGuard alcanza velocidades
+\textbf{3--4x más rápidas} que OpenVPN en el mismo hardware.
+\end{moderno}
+
+\section{\eh{office-building} Zero Trust y BeyondCorp}
+
+\begin{concepto}
+\textbf{Zero Trust} es un modelo de seguridad que asume que \textit{ninguna
+red es confiable} --- ni la interna. Contrasta con el modelo tradicional
+de ``fortaleza y foso'': todo dentro del firewall es confiable.
+
+\emoji{light-bulb} \textbf{Analogía:} modelo tradicional = castillo con
+muralla. Si cruzas el firewall, eres confiable y puedes ir a cualquier
+habitación. Zero Trust = edificio moderno con tarjetas de acceso en
+\textit{cada puerta}. Aunque entres al edificio, cada habitación verifica
+tu identidad.
+\end{concepto}
+
+\subsection{BeyondCorp --- Zero Trust de Google}
+
+\begin{concepto}
+\textbf{BeyondCorp} (Google, 2014) fue la implementación pionera de Zero
+Trust a escala. Después de \textbf{Operación Aurora} (ataque chino de 2010
+que comprometió la red interna), Google redesarrolló su modelo de acceso.
+\end{concepto}
+
+Principios BeyondCorp:
+\begin{enumerate}
+    \item \textbf{Device Trust:} cada dispositivo tiene un certificado.
+          Los dispositivos no administrados no tienen acceso, sin importar
+          dónde estén conectados.
+    \item \textbf{User Identity:} autenticación fuerte (MFA) en \textit{cada}
+          acceso. La VPN corporativa no existe --- el usuario se autentica
+          directamente al recurso.
+    \item \textbf{Context-Aware Access:} acceso depende del contexto:
+          dispositivo administrado, IP inusual, horario normal, rol correcto.
+    \item \textbf{Micro-segmentación:} acceso al sistema de RH no da
+          acceso al sistema de pagos.
+\end{enumerate}
+
+\begin{verbatim}
+  BeyondCorp Architecture:
+
+  Empleado con laptop corporativa
+           │
+           ▼
+    Access Proxy (BeyondCorp)
+           │
+           ├── Dispositivo registrado? (certificado)
+           ├── Usuario autenticado? (Identity-Aware Proxy)
+           ├── Contexto normal? (hora, ubicación, comportamiento)
+           └── Tiene permiso para ESTE recurso específico?
+                        │
+               [TODOS SÍ] → Acceso concedido
+               [ALGÚN NO] → Acceso denegado + alerta
+\end{verbatim}
+
+\begin{moderno}
+\textbf{\emoji{rocket} Google Cloud BeyondCorp Enterprise} permite que
+cualquier empresa implemente Zero Trust usando la misma infraestructura
+que protege Google:
+\begin{itemize}
+    \item \textbf{Identity-Aware Proxy (IAP):} acceso a apps internas sin VPN
+    \item \textbf{Endpoint Verification:} verifica el estado del dispositivo
+    \item \textbf{Context-Aware Access:} políticas basadas en contexto
+    \item \textbf{Chrome Enterprise:} el browser como agente de seguridad
+\end{itemize}
+Hoy, los 100,000+ empleados de Google trabajan sin VPN corporativa tradicional.
+\end{moderno}
+
+\begin{cuidado}
+\textbf{Zero Trust no es una tecnología, es una filosofía.} No puedes
+``comprar Zero Trust''. Requiere cambios arquitectónicos fundamentales:
+inventario de todos los recursos, clasificación de datos, autenticación
+fuerte universal, y monitoreo continuo. La implementación típica toma
+2--3 años en una empresa grande.
+\end{cuidado}
