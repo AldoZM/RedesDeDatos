@@ -1,0 +1,122 @@
+% ApuntesRedes.tex — Archivo raíz
+\documentclass[12pt, a4paper]{book}
+
+% Encoding & Language
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish, es-tabla]{babel}
+
+% Emojis (requiere LuaLaTeX)
+\usepackage{emoji}
+\setemojifont{Segoe UI Emoji}
+
+% Iconos extra
+\usepackage{fontawesome5}
+
+% Layout
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black,
+    pdftitle={Apuntes de Redes de Datos},
+    pdfauthor={Aldo Zepeda}
+}
+
+% Cajas visuales
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% Cajas personalizadas
+\newtcolorbox{concepto}[1][]{
+    title={\emoji{brain} Concepto},
+    colback=blue!8!white, colframe=blue!50!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{ejemplo}[1][]{
+    title={\emoji{package} Ejemplo real},
+    colback=green!8!white, colframe=green!50!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{cuidado}[1][]{
+    title={\emoji{warning} Cuidado},
+    colback=orange!15!white, colframe=orange!70!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{moderno}[1][]{
+    title={\emoji{rocket} Tecnología Moderna},
+    colback=violet!8!white, colframe=violet!60!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{codigo}[1][]{
+    title={\emoji{laptop} Configuración / Código},
+    colback=gray!10!white, colframe=gray!60!black,
+    fonttitle=\bfseries, breakable, #1
+}
+
+% Código fuente
+\usepackage{listings}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true
+}
+
+% Diagramas
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing}
+
+% Matemáticas
+\usepackage{amsmath}
+
+% Colores
+\usepackage{xcolor}
+
+% Tablas
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+
+% Gráficos
+\usepackage{graphicx}
+\graphicspath{{assets/}}
+
+%% ============================================================
+\begin{document}
+
+% Portada
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\Huge\bfseries \emoji{globe-showing-americas} Apuntes de Redes de Datos\par}
+    \vspace{0.5cm}
+    {\Large\bfseries Redes de Datos Seguras\par}
+    \vspace{1cm}
+    {\large Basado en MADO-31 --- UNAM Facultad de Ingeniería\par}
+    \vspace{0.5cm}
+    {\large Aldo Zepeda Moctezuma\par}
+    \vspace{0.5cm}
+    {\normalsize \today\par}
+    \vspace{2cm}
+    {\large\itshape ``Si no puedes explicarlo simplemente, no lo entiendes suficientemente bien.''\\[4pt]
+    --- Albert Einstein\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% Capítulos
+\input{chapters/00_intro}
+\input{chapters/01_capa1_fisica}
+\input{chapters/02_capa2_enlace}
+\input{chapters/03_capa3_red}
+\input{chapters/04_capa4_transporte}
+\input{chapters/05_capa5_sesion}
+\input{chapters/06_capa6_presentacion}
+\input{chapters/07_capa7_aplicacion}
+\input{chapters/08_modernos_google}
+\input{chapters/09_seguridad_redes}
+
+\end{document}
