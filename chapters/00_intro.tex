@@ -1,1 +1,218 @@
-% TODO
+\chapter{\eh{globe-showing-americas} Introducción a las Redes de Datos}
+
+%% ── 1.1 ¿Qué es una red? ─────────────────────────────────────────────────
+\section{\eh{thinking-face} ¿Qué es una red de datos?}
+
+\begin{concepto}
+Una \textbf{red de datos} es un conjunto de dispositivos (computadoras, teléfonos,
+impresoras, servidores) conectados entre sí para poder \textbf{compartir información
+y recursos}.
+
+\emoji{light-bulb} \textbf{Analogía:} Imagina que tienes amigos en diferentes casas.
+Una red es como un sistema de tuberías que conecta todas las casas para que
+puedan mandarse agua (datos) entre sí. Cada casa tiene su dirección (IP), y
+las tuberías (cables o Wi-Fi) transportan el agua hasta la puerta correcta.
+\end{concepto}
+
+\section{\eh{books} Un poco de historia \emoji{hourglass-done}}
+
+\begin{itemize}
+    \item \textbf{1969 --- ARPANET:} La primera red de computadoras del mundo,
+          financiada por el Departamento de Defensa de EE.UU. Solo 4 nodos:
+          UCLA, Stanford, UCSB y University of Utah.
+          \emoji{exploding-head} El primer mensaje enviado fue \textit{``lo''}
+          porque el sistema crasheó antes de terminar de enviar \textit{``login''}!
+    \item \textbf{1974 --- TCP/IP:} Vint Cerf y Bob Kahn publican el paper que
+          define los protocolos de Internet.
+    \item \textbf{1983 --- Nacimiento de Internet:} ARPANET adopta TCP/IP
+          oficialmente. Se le llama el ``Big Bang'' de Internet.
+    \item \textbf{1991 --- World Wide Web:} Tim Berners-Lee inventa HTTP y HTML
+          en el CERN. Internet ya no es solo para militares e investigadores.
+    \item \textbf{2003 --- Wi-Fi se masifica:} 802.11g llega a laptops de consumo.
+    \item \textbf{2015 --- HTTP/2:} Google impulsa la segunda versión de HTTP.
+    \item \textbf{2021 --- QUIC (RFC 9000):} Google revoluciona el transporte web.
+          Hoy $\approx$25\% del tráfico de Internet usa QUIC.
+    \item \textbf{2022 --- HTTP/3:} HTTP sobre QUIC estandarizado (RFC 9114).
+\end{itemize}
+
+%% ── 1.3 Modelo OSI ───────────────────────────────────────────────────────
+\section{\eh{birthday-cake} El Modelo OSI --- Las 7 Capas}
+
+\begin{concepto}
+El \textbf{modelo OSI} (Open Systems Interconnection) es un modelo de referencia
+creado por ISO en 1984. Divide la comunicación en red en \textbf{7 capas},
+cada una con una responsabilidad específica y bien definida.
+
+\emoji{light-bulb} \textbf{Analogía:} Es como enviar una carta por DHL. Tú
+escribes el mensaje (capa 7), lo metes en un sobre (capa 6), le pones dirección
+y número de seguimiento (capas 3--4), el empaquetador lo mete en una caja (capa 2),
+el camión lo transporta por carretera (capa 1). Cada quien hace su parte
+sin saber exactamente qué hacen los demás.
+\end{concepto}
+
+\begin{center}
+\begin{tikzpicture}[
+    layer/.style={rectangle, draw, minimum width=9cm, minimum height=0.85cm,
+                  font=\bfseries\small, align=center, rounded corners=2pt},
+]
+\node[layer, fill=red!25]    (L7) at (0,5.1) {Capa 7 --- \emoji{desktop-computer} Aplicación (Application)};
+\node[layer, fill=orange!30] (L6) at (0,4.25){Capa 6 --- \emoji{artist-palette} Presentación (Presentation)};
+\node[layer, fill=yellow!35] (L5) at (0,3.4) {Capa 5 --- \emoji{handshake} Sesión (Session)};
+\node[layer, fill=green!25]  (L4) at (0,2.55){Capa 4 --- \emoji{truck} Transporte (Transport)};
+\node[layer, fill=cyan!25]   (L3) at (0,1.7) {Capa 3 --- \emoji{world-map} Red (Network)};
+\node[layer, fill=blue!20]   (L2) at (0,0.85){Capa 2 --- \emoji{link} Enlace de Datos (Data Link)};
+\node[layer, fill=purple!20] (L1) at (0,0.0) {Capa 1 --- \emoji{electric-plug} Física (Physical)};
+\draw[-{Stealth}, thick] (L7.south) -- (L6.north);
+\draw[-{Stealth}, thick] (L6.south) -- (L5.north);
+\draw[-{Stealth}, thick] (L5.south) -- (L4.north);
+\draw[-{Stealth}, thick] (L4.south) -- (L3.north);
+\draw[-{Stealth}, thick] (L3.south) -- (L2.north);
+\draw[-{Stealth}, thick] (L2.south) -- (L1.north);
+\end{tikzpicture}
+\end{center}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{clll}
+\toprule
+\textbf{Capa} & \textbf{Nombre} & \textbf{Qué hace} & \textbf{Ejemplos} \\
+\midrule
+7 & Aplicación   & Interfaz con el usuario y apps       & HTTP, DNS, SMTP, FTP \\
+6 & Presentación & Codifica, comprime y cifra           & TLS, Base64, JPEG \\
+5 & Sesión       & Gestiona sesiones de comunicación    & NetBIOS, RPC \\
+4 & Transporte   & Entrega extremo a extremo, puertos   & TCP, UDP, QUIC \\
+3 & Red          & Enrutamiento entre redes distintas   & IP, ICMP, OSPF, BGP \\
+2 & Enlace       & Entrega en la misma red local (LAN)  & Ethernet, MAC, ARP \\
+1 & Física       & Bits sobre el medio físico           & UTP, Fibra, Radio \\
+\bottomrule
+\end{tabular}
+\caption{Resumen del modelo OSI}
+\end{table}
+
+\begin{cuidado}
+\textbf{\emoji{brain} Mnemónica (capas 7 a 1):}
+
+\textbf{A}ll \textbf{P}eople \textbf{S}eem \textbf{T}o \textbf{N}eed \textbf{D}ata \textbf{P}rocessing
+
+(Application, Presentation, Session, Transport, Network, Data Link, Physical)
+\end{cuidado}
+
+%% ── 1.4 Modelo TCP/IP ─────────────────────────────────────────────────────
+\section{\eh{laptop} El Modelo TCP/IP (Modelo de Internet)}
+
+\begin{concepto}
+El \textbf{modelo TCP/IP} es el que usa Internet en la realidad. Fue creado
+por DARPA en los 70s y tiene \textbf{4 capas}. No es un modelo teórico sino
+el protocolo real que funciona hoy en cada dispositivo conectado a Internet.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+\textbf{Capa TCP/IP} & \textbf{Equivale a OSI} & \textbf{Protocolos} \\
+\midrule
+Aplicación    & Capas 7 + 6 + 5 & HTTP, DNS, SMTP, SSH, FTP \\
+Transporte    & Capa 4          & TCP, UDP, QUIC \\
+Internet      & Capa 3          & IPv4, IPv6, ICMP \\
+Acceso a red  & Capas 2 + 1     & Ethernet, Wi-Fi, ARP \\
+\bottomrule
+\end{tabular}
+\caption{Modelo TCP/IP vs OSI}
+\end{table}
+
+%% ── 1.5 PDUs ──────────────────────────────────────────────────────────────
+\section{\eh{package} PDUs --- ¿Cómo se llaman los datos en cada capa?}
+
+Cada capa llama de distinta forma a la unidad de datos que maneja
+(\textbf{PDU}: Protocol Data Unit):
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{clll}
+\toprule
+\textbf{Capa} & \textbf{PDU} & \textbf{Contiene} & \textbf{Analogía} \\
+\midrule
+7--5 & Datos (Data)            & El mensaje de la app    & El texto de la carta \\
+4    & Segmento / Datagrama    & Datos + puertos         & Carta con remitente y destinatario \\
+3    & Paquete (Packet)        & Segmento + IPs          & Caja con dirección postal \\
+2    & Trama (Frame)           & Paquete + MACs          & Caja subida al camión \\
+1    & Bits                    & 0s y 1s en el cable     & Las ruedas del camión girando \\
+\bottomrule
+\end{tabular}
+\caption{PDUs por capa OSI}
+\end{table}
+
+\begin{ejemplo}
+\textbf{Qué pasa cuando abres \texttt{google.com}:}
+\begin{enumerate}
+    \item Tu browser (capa 7) genera un \textbf{HTTP GET /}
+    \item TCP (capa 4) añade puertos (src: 54321, dst: 443) \textrightarrow{} \textbf{segmento}
+    \item IP (capa 3) añade tu IP y la de Google \textrightarrow{} \textbf{paquete}
+    \item Ethernet (capa 2) añade MACs \textrightarrow{} \textbf{trama}
+    \item Tu NIC (capa 1) convierte en \textbf{señal eléctrica} o \textbf{radio}
+    \item En Google, el proceso se invierte: reconstruyen el HTTP GET desde los bits
+\end{enumerate}
+\end{ejemplo}
+
+%% ── 1.6 RFC e IETF ────────────────────────────────────────────────────────
+\section{\eh{scroll} RFCs --- Las reglas de Internet}
+
+\begin{concepto}
+Un \textbf{RFC} (Request for Comments) es un documento técnico que define cómo
+funciona un protocolo de Internet. Son publicados por el \textbf{IETF}
+(Internet Engineering Task Force) y son de acceso público y gratuito en
+\texttt{https://www.rfc-editor.org}.
+
+\emoji{light-bulb} \textbf{Analogía:} Los RFCs son como las reglas del fútbol
+publicadas por la FIFA. Sin reglas comunes, un router Cisco no podría
+hablar con uno Juniper, y tu celular no podría conectarse a Internet.
+\end{concepto}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{RFC} & \textbf{Protocolo} & \textbf{Año} \\
+\midrule
+RFC 768  & UDP                           & 1980 \\
+RFC 791  & IPv4                          & 1981 \\
+RFC 793  & TCP                           & 1981 \\
+RFC 1918 & Direcciones IP privadas       & 1996 \\
+RFC 2328 & OSPF versión 2                & 1998 \\
+RFC 4251 & SSH Architecture              & 2006 \\
+RFC 8200 & IPv6                          & 2017 \\
+RFC 8446 & TLS 1.3                       & 2018 \\
+RFC 8484 & DNS over HTTPS (DoH)          & 2018 \\
+RFC 9000 & \textbf{QUIC}                 & \textbf{2021} \\
+RFC 9114 & \textbf{HTTP/3}               & \textbf{2022} \\
+RFC 9250 & DNS over QUIC (DoQ)           & 2022 \\
+\bottomrule
+\end{tabular}
+\caption{RFCs clave}
+\end{table}
+
+\section{\eh{office-building} Organismos de Estandarización}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+\textbf{Organismo} & \textbf{Nombre completo} & \textbf{Qué estandariza} \\
+\midrule
+IETF  & Internet Engineering Task Force          & Protocolos de Internet (RFCs) \\
+IEEE  & Inst. of Electrical and Electronics Eng. & Ethernet (802.3), Wi-Fi (802.11) \\
+ISO   & Intl. Organization for Standardization  & Modelo OSI, ISO 27000 (seguridad) \\
+IANA  & Internet Assigned Numbers Authority      & IPs, puertos, nombres de dominio \\
+ANSI  & American National Standards Institute    & Estándares industriales EE.UU. \\
+TIA   & Telecommunications Industry Association  & Cableado estructurado (con EIA) \\
+LACNIC & Latin America and Caribbean NIC        & Asignación de IPs en Latinoamérica \\
+\bottomrule
+\end{tabular}
+\caption{Organismos de estandarización}
+\end{table}

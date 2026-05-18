@@ -83,8 +83,15 @@
 \usepackage{graphicx}
 \graphicspath{{assets/}}
 
+% Macro para emojis en headings
+\newcommand{\eh}[1]{\texorpdfstring{\emoji{#1}}{}}
+
 %% ============================================================
 \begin{document}
+
+% Evitar que \MakeUppercase del book class rompa emojis en running headers
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection.\ #1}}
 
 % Portada
 \begin{titlepage}
