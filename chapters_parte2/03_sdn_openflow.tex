@@ -1,1 +1,231 @@
-﻿% TODO
+% chapters_parte2/03_sdn_openflow.tex
+
+\chapter{\eh{control-knobs} SDN y OpenFlow}
+
+Imagina que cada semáforo de una ciudad toma sus propias decisiones de forma independiente:
+no sabe qué pasa en el resto de la ciudad, no puede coordinarse con los demás, y para
+cambiar una política necesitas ir físicamente a cada semáforo. Eso es el networking
+tradicional. \textbf{SDN} pone un controlador central que tiene visibilidad de toda la
+red y puede programar cada ``semáforo'' (switch) desde un solo punto.
+
+% ─────────────────────────────────────────────
+\section{\eh{warning} El Problema del Networking Tradicional}
+
+\begin{concepto}
+En un router o switch tradicional, el \textbf{control plane} (quién decide a dónde va
+el paquete) y el \textbf{data plane} (quién realmente lo reenvía) viven \emph{en el
+mismo dispositivo}. Esto implica:
+
+\begin{itemize}
+    \item Para cambiar política de routing, hay que reconfigurar cada dispositivo
+          individualmente (SSH a cada switch, cambiar ACLs, redistribuir rutas).
+    \item No hay visibilidad global: cada router solo conoce su vecindad.
+    \item Nuevas funciones requieren actualizar firmware en \emph{todos} los dispositivos.
+    \item La red no puede adaptarse automáticamente a condiciones cambiantes.
+\end{itemize}
+\end{concepto}
+
+% ─────────────────────────────────────────────
+\section{\eh{building-construction} Arquitectura SDN}
+
+\begin{concepto}
+\textbf{SDN (Software-Defined Networking)} separa el control plane del data plane.
+El control plane se centraliza en un \textbf{SDN Controller}; los switches solo hacen
+forwarding según las instrucciones del controlador.
+\end{concepto}
+
+\subsection{Las tres capas}
+
+\begin{center}
+\begin{tikzpicture}[
+    layer/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                  rectangle, rounded corners=6pt, minimum width=8cm,
+                  minimum height=1.2cm, font=\bfseries, align=center},
+    api/.style={draw=yellow!60!white, text=yellow!80!white, font=\small\itshape},
+]
+    \node[layer] (app)  at (0,4.5) {Application Layer\\
+        {\small\normalfont Load balancing, firewall, monitoreo, orquestación}};
+    \node[layer] (ctrl) at (0,2.5) {Control Layer (SDN Controller)\\
+        {\small\normalfont ONOS, OpenDaylight, Ryu}};
+    \node[layer] (infra) at (0,0.5) {Infrastructure Layer\\
+        {\small\normalfont Switches / Routers (solo data plane)}};
+
+    \draw[-{Stealth}, thick, draw=yellow!60!white]
+        (app.south) -- node[api, right] {Northbound API (REST/gRPC)} (ctrl.north);
+    \draw[-{Stealth}, thick, draw=orange!60!white]
+        (ctrl.south) -- node[api, right] {Southbound API (OpenFlow/NETCONF)} (infra.north);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Northbound vs Southbound API}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{API} & \textbf{Entre} & \textbf{Protocolos típicos} \\
+\midrule
+Northbound & Aplicaciones $\to$ Controlador & REST, gRPC, GraphQL \\
+Southbound & Controlador $\to$ Switches     & OpenFlow, NETCONF, gRPC/gNMI \\
+East/West  & Controlador $\to$ Controlador  & OVSDB, clustering protocols \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{scroll} OpenFlow Protocol}
+
+\begin{concepto}
+\textbf{OpenFlow} es el protocolo southbound más extendido. El controlador instala
+\emph{flow entries} en la \textbf{flow table} de cada switch OpenFlow. Cuando llega
+un paquete, el switch lo compara contra las entries y ejecuta las acciones indicadas.
+
+Analogía: el switch es un mesero con un menú fijo (flow table). El controlador es el
+chef que decide qué platos ofrece ese mesero. El mesero no improvisa: si el paquete
+no está en el menú, lo manda al chef (controller) para que decida.
+\end{concepto}
+
+\subsection{Flow Entry: Match + Actions}
+
+Una flow entry tiene dos partes:
+
+\begin{itemize}
+    \item \textbf{Match fields:} los campos del paquete a comparar (puerto de entrada,
+          MAC src/dst, VLAN, IP src/dst, protocolo, puerto TCP/UDP, etc.).
+    \item \textbf{Actions:} qué hacer si hay match (forward al puerto X, drop, modificar
+          campo del paquete, encolar, enviar al controlador).
+\end{itemize}
+
+\subsection{Formato de flow entry OpenFlow 1.3}
+
+\begin{verbatim}
++-----------+----------+---------+---------+----------+----------+
+| Match     | Priority | Counters| Timeout | Cookie   | Actions  |
+| (12+ campos)         | (pkts,  | (idle,  | (opaco)  | (lista)  |
+|           |          |  bytes) |  hard)  |          |          |
++-----------+----------+---------+---------+----------+----------+
+\end{verbatim}
+
+\begin{codigo}
+\begin{lstlisting}
+# Ejemplo via ovs-ofctl (Open vSwitch)
+# Reenviar trafico HTTP (dst port 80) al puerto 2:
+ovs-ofctl add-flow br0 \
+  "priority=100, ip, nw_proto=6, tp_dst=80, actions=output:2"
+
+# Bloquear IP especifica:
+ovs-ofctl add-flow br0 \
+  "priority=200, ip, nw_src=10.0.0.5, actions=drop"
+
+# Todo lo demas al controlador:
+ovs-ofctl add-flow br0 \
+  "priority=0, actions=controller"
+\end{lstlisting}
+\end{codigo}
+
+\subsection{Pipeline de tablas}
+
+OpenFlow 1.1+ permite múltiples flow tables en secuencia:
+
+\begin{center}
+\begin{tikzpicture}[
+    tbl/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                rectangle, minimum width=2cm, minimum height=0.9cm,
+                font=\small, align=center},
+    arr/.style={-{Stealth}, draw=textlight, thick},
+]
+    \node[tbl] (t0) at (0,0)   {Table 0\\ACL};
+    \node[tbl] (t1) at (2.5,0) {Table 1\\VLAN};
+    \node[tbl] (t2) at (5,0)   {Table 2\\L3 Route};
+    \node[tbl] (t3) at (7.5,0) {Table 3\\QoS};
+    \node[tbl, draw=green!50!white] (out) at (10,0) {Output\\Port};
+
+    \draw[arr] (-1.2,0) -- (t0);
+    \draw[arr] (t0) -- (t1);
+    \draw[arr] (t1) -- (t2);
+    \draw[arr] (t2) -- (t3);
+    \draw[arr] (t3) -- (out);
+
+    \node[text=yellow!70!white, font=\tiny] at (1.25,-0.8) {GOTO\_TABLE};
+    \node[text=yellow!70!white, font=\tiny] at (3.75,-0.8) {GOTO\_TABLE};
+    \node[text=yellow!70!white, font=\tiny] at (6.25,-0.8) {GOTO\_TABLE};
+    \node[text=yellow!70!white, font=\tiny] at (8.75,-0.8) {GOTO\_TABLE};
+\end{tikzpicture}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{desktop-computer} Controladores SDN}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Controlador} & \textbf{Lenguaje} & \textbf{Caso de uso} & \textbf{Nota} \\
+\midrule
+ONOS        & Java   & Telco, carrier-grade & Clustering nativo \\
+OpenDaylight & Java  & Enterprise, modular  & Comunidad grande \\
+Ryu         & Python & Testing, académico   & Fácil de extender \\
+Floodlight  & Java   & Datacenters          & Fork de NOX \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{OVS — Open vSwitch}
+
+\begin{moderno}
+\emoji{rocket} \textbf{Open vSwitch (OVS)} es la implementación \emph{software} de un
+switch OpenFlow. Vive en el hypervisor (Linux kernel) y conecta VMs entre sí y con la
+red física. Es el switch virtual por defecto en OpenStack y muchos entornos cloud privados.
+
+Kubernetes también lo usa: \textbf{OVN (Open Virtual Network)} sobre OVS implementa
+el modelo de red de pods con OpenFlow bajo el capó.
+\end{moderno}
+
+% ─────────────────────────────────────────────
+\section{\eh{brain} Intent-Based Networking (IBN)}
+
+\begin{concepto}
+\textbf{IBN} es la evolución de SDN: en vez de programar flows individuales, el admin
+declara una \emph{intención de alto nivel} y el sistema la traduce automáticamente a
+reglas de bajo nivel.
+
+Ejemplo de intención:
+\begin{itemize}
+    \item ``Las VMs de producción nunca deben comunicarse con las de desarrollo.''
+    \item ``Todo el tráfico de VoIP debe tener latencia máxima de 20 ms.''
+    \item ``Los servidores de la VLAN 100 solo acceden a Internet por el firewall A.''
+\end{itemize}
+
+El controlador verifica continuamente que la intención se cumpla y la restaura
+automáticamente si algo cambia (\emph{closed-loop automation}).
+\end{concepto}
+
+\begin{ejemplo}
+\textbf{Cisco DNA Center} y \textbf{Cisco Catalyst Center} son las implementaciones
+comerciales de IBN de Cisco. \textbf{VMware NSX} hace lo mismo para redes virtualizadas
+de datacenters. En ambos casos, el admin define políticas en una GUI y el sistema genera
+las ACLs, SGTs (Security Group Tags) y flows de OpenFlow necesarios.
+\end{ejemplo}
+
+% ─────────────────────────────────────────────
+\section{\eh{memo} SDN en Producción: Realidades}
+
+\begin{cuidado}
+\textbf{El controlador es un single point of failure.} Si el controlador cae, los
+switches que dependen de él para tomar decisiones pueden dejar de funcionar (o entrar
+en modo failopen/failsecure con comportamiento degradado).
+
+Mitigación: clustering de controladores (ONOS tiene clustering nativo), y configurar
+los switches para seguir forwarding con las flows cacheadas durante outages breves.
+\end{cuidado}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Ventaja SDN} & \textbf{Limitación SDN} \\
+\midrule
+Visibilidad global de la red    & Controlador = SPOF si no hay HA \\
+Cambios de política centralizados & Latencia extra (paquete $\to$ controlador) \\
+Automatización programable      & Curva de aprendizaje alta \\
+Desacoplamiento HW/SW           & No todos los switches soportan OpenFlow \\
+\bottomrule
+\end{tabular}
+\end{center}
