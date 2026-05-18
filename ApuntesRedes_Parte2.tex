@@ -1,0 +1,128 @@
+% ApuntesRedes_Parte2.tex — Parte 2: Nivel Senior
+\documentclass[12pt, a4paper]{book}
+
+% Encoding & Language
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish, es-tabla]{babel}
+
+% Emojis (requiere LuaLaTeX)
+\usepackage{emoji}
+\setemojifont{Segoe UI Emoji}
+
+% Iconos extra
+\usepackage{fontawesome5}
+
+% Layout
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black,
+    pdftitle={Apuntes de Redes de Datos --- Parte 2},
+    pdfauthor={Aldo Zepeda}
+}
+
+% Cajas visuales
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% Cajas personalizadas
+\newtcolorbox{concepto}[1][]{
+    title={\emoji{brain} Concepto},
+    colback=blue!8!white, colframe=blue!50!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{ejemplo}[1][]{
+    title={\emoji{package} Ejemplo real},
+    colback=green!8!white, colframe=green!50!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{cuidado}[1][]{
+    title={\emoji{warning} Cuidado},
+    colback=orange!15!white, colframe=orange!70!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{moderno}[1][]{
+    title={\emoji{rocket} Tecnología Moderna},
+    colback=violet!8!white, colframe=violet!60!black,
+    fonttitle=\bfseries, breakable, #1
+}
+\newtcolorbox{codigo}[1][]{
+    title={\emoji{laptop} Configuración / Código},
+    colback=gray!10!white, colframe=gray!60!black,
+    fonttitle=\bfseries, breakable, #1
+}
+
+% Código fuente
+\usepackage{listings}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true
+}
+
+% Diagramas
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing}
+
+% Matemáticas
+\usepackage{amsmath}
+
+% Colores
+\usepackage{xcolor}
+
+% Tablas
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+
+% Gráficos
+\usepackage{graphicx}
+\graphicspath{{assets/}}
+
+% Macro para emojis en headings (evita MakeUppercase bug)
+\newcommand{\eh}[1]{\texorpdfstring{\emoji{#1}}{}}
+
+%% ============================================================
+\begin{document}
+
+% Evitar que \MakeUppercase del book class rompa emojis en running headers
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection.\ #1}}
+
+% Portada
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\Huge\bfseries \emoji{rocket} Apuntes de Redes de Datos\par}
+    \vspace{0.5cm}
+    {\Large\bfseries Parte 2 --- Nivel Senior\par}
+    \vspace{1cm}
+    {\large SDN, Datacenter, Cloud, Kubernetes, MPLS, Multicast\par}
+    \vspace{0.5cm}
+    {\large Aldo Zepeda Moctezuma\par}
+    \vspace{0.5cm}
+    {\normalsize \today\par}
+    \vspace{2cm}
+    {\large\itshape ``La infraestructura que no entiendes es la infraestructura que te va a fallar a las 3am.''\\[4pt]
+    --- Sabiduría de SRE\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% Capítulos
+\input{chapters_parte2/00_intro_p2}
+\input{chapters_parte2/01_wireless_empresarial}
+\input{chapters_parte2/02_switching_avanzado}
+\input{chapters_parte2/03_sdn_openflow}
+\input{chapters_parte2/04_datacenter_vxlan_evpn}
+\input{chapters_parte2/05_mpls_qos}
+\input{chapters_parte2/06_kubernetes_networking}
+\input{chapters_parte2/07_cloud_networking}
+\input{chapters_parte2/08_multicast}
+
+\end{document}
