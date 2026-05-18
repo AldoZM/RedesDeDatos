@@ -25,34 +25,34 @@ que tú tengas que pedirlo o configurarlo.
 \begin{center}
 \begin{tikzpicture}[
     msg/.style={-{Stealth}, thick},
-    server/.style={font=\bfseries\small}
+    server/.style={font=\bfseries\small, text=textlight}
 ]
 \node[server] at (0,0) {Cliente};
 \node[server] at (8,0) {Servidor DHCP};
-\draw[thick] (0,-0.3) -- (0,-7.5);
-\draw[thick] (8,-0.3) -- (8,-7.5);
+\draw[thick, draw=gray!50!white] (0,-0.3) -- (0,-7.5);
+\draw[thick, draw=gray!50!white] (8,-0.3) -- (8,-7.5);
 
-\draw[msg, blue] (0,-1.0) -- (8,-1.8)
-    node[midway, above, sloped, font=\small\bfseries] {DISCOVER};
-\node[font=\tiny, right] at (8,-1.8)
+\draw[msg, cyan!70!white] (0,-1.0) -- (8,-1.8)
+    node[midway, above, sloped, font=\small\bfseries, text=cyan!80!white] {DISCOVER};
+\node[font=\tiny, right, text=gray!70!white] at (8,-1.8)
     {Broadcast: ``¿Hay un servidor DHCP?''};
 
-\draw[msg, green!60!black] (8,-2.3) -- (0,-3.1)
-    node[midway, above, sloped, font=\small\bfseries] {OFFER};
-\node[font=\tiny, left] at (0,-3.1)
+\draw[msg, green!60!white] (8,-2.3) -- (0,-3.1)
+    node[midway, above, sloped, font=\small\bfseries, text=green!70!white] {OFFER};
+\node[font=\tiny, left, text=gray!70!white] at (0,-3.1)
     {``Te ofrezco 192.168.1.100 por 24h''};
 
-\draw[msg, orange] (0,-3.6) -- (8,-4.4)
-    node[midway, above, sloped, font=\small\bfseries] {REQUEST};
-\node[font=\tiny, right] at (8,-4.4)
+\draw[msg, orange!80!white] (0,-3.6) -- (8,-4.4)
+    node[midway, above, sloped, font=\small\bfseries, text=orange!80!white] {REQUEST};
+\node[font=\tiny, right, text=gray!70!white] at (8,-4.4)
     {Broadcast: ``Acepto la oferta de 192.168.1.100''};
 
-\draw[msg, red!70!black] (8,-4.9) -- (0,-5.7)
-    node[midway, above, sloped, font=\small\bfseries] {ACK};
-\node[font=\tiny, left] at (0,-5.7)
+\draw[msg, red!70!white] (8,-4.9) -- (0,-5.7)
+    node[midway, above, sloped, font=\small\bfseries, text=red!80!white] {ACK};
+\node[font=\tiny, left, text=gray!70!white] at (0,-5.7)
     {``Confirmado, es tuya hasta las 14:00 de mañana''};
 
-\node[font=\small\itshape] at (4,-6.8)
+\node[font=\small\itshape, text=green!60!white] at (4,-6.8)
     {\emoji{check-mark-button} Cliente ya tiene IP, máscara, gateway y DNS};
 \end{tikzpicture}
 \end{center}
@@ -88,7 +88,7 @@ en vez de marcar el número completo.
 
 \subsection{Jerarquía DNS}
 
-\begin{verbatim}
+\begin{lstlisting}
   . (root) ── gestionado por IANA, 13 root servers en todo el mundo
   │
   ├── .com  .org  .mx  .net  .io  ...  (TLDs - Top Level Domains)
@@ -99,7 +99,7 @@ en vez de marcar el número completo.
   │      (Subdominios, configurados por Google)
   │
   └── .edu  .gob  ... (TLDs especiales)
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Tipos de registros DNS}
 
@@ -126,7 +126,7 @@ SRV   & Servicio y puerto          & \texttt{\_http.\_tcp.example.com} \\
 
 \subsection{Proceso de resolución DNS}
 
-\begin{verbatim}
+\begin{lstlisting}
   Browser pide: www.unam.mx
 
   1. Caché del OS → ¿ya lo tengo? Si sí, listo.
@@ -139,13 +139,13 @@ SRV   & Servicio y puerto          & \texttt{\_http.\_tcp.example.com} \\
 
   Resolución iterativa: el resolver hace todas las preguntas
   Resolución recursiva: el root server haría todas las preguntas (raro)
-\end{verbatim}
+\end{lstlisting}
 
 \section{\eh{globe-showing-americas} HTTP --- HyperText Transfer Protocol}
 
 \subsection{HTTP/1.1 --- El original (RFC 2616, 1999)}
 
-\begin{verbatim}
+\begin{lstlisting}
   ─── Request ─────────────────────────────────────────
   GET /index.html HTTP/1.1
   Host: example.com
@@ -160,7 +160,7 @@ SRV   & Servicio y puerto          & \texttt{\_http.\_tcp.example.com} \\
   Cache-Control: max-age=3600
 
   <!DOCTYPE html>...
-\end{verbatim}
+\end{lstlisting}
 
 \textbf{Problema principal de HTTP/1.1:}
 \begin{itemize}

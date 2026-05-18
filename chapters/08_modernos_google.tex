@@ -41,7 +41,7 @@ TCP tiene problemas fundamentales con el internet moderno:
 
 \subsection{Solución QUIC}
 
-\begin{verbatim}
+\begin{lstlisting}
   TCP + TLS 1.2:
     ├── TCP SYN / SYN-ACK / ACK       (1 RTT)
     ├── TLS ClientHello / ServerHello  (1 RTT)
@@ -54,7 +54,7 @@ TCP tiene problemas fundamentales con el internet moderno:
 
   QUIC (conexión repetida con 0-RTT):
     └── Request + datos inmediatamente                   = 0 RTTs extra
-\end{verbatim}
+\end{lstlisting}
 
 \begin{table}[h!]
 \centering
@@ -160,7 +160,7 @@ Uso             & APIs públicas         & Microservicios internos \\
 
 \subsection{Tipos de streaming en gRPC}
 
-\begin{verbatim}
+\begin{lstlisting}
   1. Unary (request-response normal):
      cliente ──── Request ────► servidor
      cliente ◄─── Response ─── servidor
@@ -180,7 +180,7 @@ Uso             & APIs públicas         & Microservicios internos \\
   4. Bidirectional Streaming:
      cliente ◄──► servidor
      (útil: chat, videojuegos en tiempo real)
-\end{verbatim}
+\end{lstlisting}
 
 \begin{moderno}
 \textbf{\emoji{rocket} gRPC en Google:} internamente, Google tiene más de
@@ -242,7 +242,7 @@ BBR modela dos parámetros físicos de la red:
           --- cuánto tarda la señal, sin congestión?
 \end{enumerate}
 
-\begin{verbatim}
+\begin{lstlisting}
   Operación ideal = BtlBw × RTprop
   (Ecuación de bandwidth-delay product)
 
@@ -250,7 +250,7 @@ BBR modela dos parámetros físicos de la red:
   Si envías MÁS lento que BtlBw   → desperdicias capacidad
 
   BBR se mantiene justo en el punto óptimo, midiendo constantemente.
-\end{verbatim}
+\end{lstlisting}
 
 \begin{moderno}
 \textbf{\emoji{rocket} Resultados reales de BBR en Google:}
@@ -277,7 +277,7 @@ Es lo que usan: Google Meet, Discord, Facebook Messenger, Jitsi.
 
 \subsection{Stack de protocolos WebRTC}
 
-\begin{verbatim}
+\begin{lstlisting}
   ┌──────────────────────────────────────────────┐
   │              Tu aplicación                    │
   ├──────────────────────────────────────────────┤
@@ -292,7 +292,7 @@ Es lo que usan: Google Meet, Discord, Facebook Messenger, Jitsi.
   ├──────────────────────────────────────────────┤
   │            UDP (o TCP como fallback)          │
   └──────────────────────────────────────────────┘
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{ICE, STUN y TURN --- NAT Traversal}
 
@@ -373,7 +373,7 @@ pueden saber exactamente qué sitio visitas aunque uses HTTPS.
 pública del servidor, publicada en DNS (registro HTTPS).
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   Sin ECH:
   ClientHello {
     server_name: "ejemplo-bloqueado.com"   <- VISIBLE en texto claro
@@ -388,7 +388,7 @@ pública del servidor, publicada en DNS (registro HTTPS).
       ...
     ]
   }
-\end{verbatim}
+\end{lstlisting}
 
 \begin{moderno}
 \textbf{\emoji{rocket} Adopción:} Firefox habilitó ECH por defecto en 2023.
@@ -429,7 +429,7 @@ más revolucionaria: \textbf{Multi-Link Operation (MLO)}.
           (2.4 + 5 + 6 GHz en paralelo real).
 \end{itemize}
 
-\begin{verbatim}
+\begin{lstlisting}
   MLO en acción:
 
   Dispositivo Wi-Fi 7            Router Wi-Fi 7
@@ -440,7 +440,7 @@ más revolucionaria: \textbf{Multi-Link Operation (MLO)}.
   El sistema elige dinámicamente qué paquete va por qué link
   según congestión e interferencia. Si 5 GHz tiene interferencia,
   automáticamente usa 6 GHz sin interrupción de la conexión.
-\end{verbatim}
+\end{lstlisting}
 
 Beneficios de MLO:
 \begin{itemize}
@@ -535,7 +535,7 @@ Principios BeyondCorp:
           acceso al sistema de pagos.
 \end{enumerate}
 
-\begin{verbatim}
+\begin{lstlisting}
   BeyondCorp Architecture:
 
   Empleado con laptop corporativa
@@ -550,7 +550,7 @@ Principios BeyondCorp:
                         │
                [TODOS SÍ] → Acceso concedido
                [ALGÚN NO] → Acceso denegado + alerta
-\end{verbatim}
+\end{lstlisting}
 
 \begin{moderno}
 \textbf{\emoji{rocket} Google Cloud BeyondCorp Enterprise} permite que

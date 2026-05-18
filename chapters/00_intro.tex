@@ -52,22 +52,22 @@ sin saber exactamente qué hacen los demás.
 
 \begin{center}
 \begin{tikzpicture}[
-    layer/.style={rectangle, draw, minimum width=9cm, minimum height=0.85cm,
-                  font=\bfseries\small, align=center, rounded corners=2pt},
+    layer/.style={rectangle, draw=gray!50!white, minimum width=9cm, minimum height=0.85cm,
+                  font=\bfseries\small, align=center, rounded corners=2pt, text=textlight},
 ]
-\node[layer, fill=red!25]    (L7) at (0,5.1) {Capa 7 --- \emoji{desktop-computer} Aplicación (Application)};
-\node[layer, fill=orange!30] (L6) at (0,4.25){Capa 6 --- \emoji{artist-palette} Presentación (Presentation)};
-\node[layer, fill=yellow!35] (L5) at (0,3.4) {Capa 5 --- \emoji{handshake} Sesión (Session)};
-\node[layer, fill=green!25]  (L4) at (0,2.55){Capa 4 --- \emoji{truck} Transporte (Transport)};
-\node[layer, fill=cyan!25]   (L3) at (0,1.7) {Capa 3 --- \emoji{world-map} Red (Network)};
-\node[layer, fill=blue!20]   (L2) at (0,0.85){Capa 2 --- \emoji{link} Enlace de Datos (Data Link)};
-\node[layer, fill=purple!20] (L1) at (0,0.0) {Capa 1 --- \emoji{electric-plug} Física (Physical)};
-\draw[-{Stealth}, thick] (L7.south) -- (L6.north);
-\draw[-{Stealth}, thick] (L6.south) -- (L5.north);
-\draw[-{Stealth}, thick] (L5.south) -- (L4.north);
-\draw[-{Stealth}, thick] (L4.south) -- (L3.north);
-\draw[-{Stealth}, thick] (L3.south) -- (L2.north);
-\draw[-{Stealth}, thick] (L2.south) -- (L1.north);
+\node[layer, fill=red!40!black]    (L7) at (0,5.1) {Capa 7 --- \emoji{desktop-computer} Aplicación (Application)};
+\node[layer, fill=orange!40!black] (L6) at (0,4.25){Capa 6 --- \emoji{artist-palette} Presentación (Presentation)};
+\node[layer, fill=yellow!30!black] (L5) at (0,3.4) {Capa 5 --- \emoji{handshake} Sesión (Session)};
+\node[layer, fill=green!35!black]  (L4) at (0,2.55){Capa 4 --- \emoji{truck} Transporte (Transport)};
+\node[layer, fill=cyan!35!black]   (L3) at (0,1.7) {Capa 3 --- \emoji{world-map} Red (Network)};
+\node[layer, fill=blue!45!black]   (L2) at (0,0.85){Capa 2 --- \emoji{link} Enlace de Datos (Data Link)};
+\node[layer, fill=purple!45!black] (L1) at (0,0.0) {Capa 1 --- \emoji{electric-plug} Física (Physical)};
+\draw[-{Stealth}, thick, draw=gray!60!white] (L7.south) -- (L6.north);
+\draw[-{Stealth}, thick, draw=gray!60!white] (L6.south) -- (L5.north);
+\draw[-{Stealth}, thick, draw=gray!60!white] (L5.south) -- (L4.north);
+\draw[-{Stealth}, thick, draw=gray!60!white] (L4.south) -- (L3.north);
+\draw[-{Stealth}, thick, draw=gray!60!white] (L3.south) -- (L2.north);
+\draw[-{Stealth}, thick, draw=gray!60!white] (L2.south) -- (L1.north);
 \end{tikzpicture}
 \end{center}
 

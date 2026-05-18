@@ -1,5 +1,5 @@
-% ApuntesRedes.tex — Archivo raíz
-\documentclass[12pt, a4paper]{book}
+% ApuntesRedes_Parte1.tex — Parte 1: Fundamentos OSI
+\documentclass[12pt, a4paper, openany]{book}
 
 % Encoding & Language
 \usepackage[utf8]{inputenc}
@@ -15,64 +15,81 @@
 
 % Layout
 \usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
+
+% Colores (antes de hyperref)
+\usepackage{xcolor}
+\definecolor{darkbg}{RGB}{0, 0, 0}
+\definecolor{textlight}{RGB}{220, 220, 220}
+\definecolor{darkcard}{RGB}{30, 30, 45}
+\definecolor{darkcardgreen}{RGB}{20, 40, 25}
+\definecolor{darkcardorange}{RGB}{45, 28, 10}
+\definecolor{darkcardviolet}{RGB}{35, 20, 50}
+\definecolor{darkcardgray}{RGB}{35, 35, 35}
+
 \usepackage{hyperref}
 \hypersetup{
     colorlinks=true,
-    linkcolor=blue!70!black,
-    urlcolor=blue!70!black,
-    pdftitle={Apuntes de Redes de Datos},
-    pdfauthor={Aldo Zepeda}
+    linkcolor=cyan!70!white,
+    urlcolor=cyan!70!white,
+    pdftitle={Apuntes de Redes de Datos --- Parte 1},
+    pdfauthor={Aldo Zetina Muciño}
 }
 
 % Cajas visuales
 \usepackage[most]{tcolorbox}
 \tcbuselibrary{skins, breakable}
 
-% Cajas personalizadas
+% Cajas personalizadas — dark mode
 \newtcolorbox{concepto}[1][]{
     title={\emoji{brain} Concepto},
-    colback=blue!8!white, colframe=blue!50!black,
+    colback=darkcard, colframe=blue!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{ejemplo}[1][]{
     title={\emoji{package} Ejemplo real},
-    colback=green!8!white, colframe=green!50!black,
+    colback=darkcardgreen, colframe=green!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{cuidado}[1][]{
     title={\emoji{warning} Cuidado},
-    colback=orange!15!white, colframe=orange!70!black,
+    colback=darkcardorange, colframe=orange!60!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{moderno}[1][]{
     title={\emoji{rocket} Tecnología Moderna},
-    colback=violet!8!white, colframe=violet!60!black,
+    colback=darkcardviolet, colframe=violet!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{codigo}[1][]{
     title={\emoji{laptop} Configuración / Código},
-    colback=gray!10!white, colframe=gray!60!black,
+    colback=darkcardgray, colframe=gray!50!white,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 
-% Código fuente
+% Código fuente — dark mode
 \usepackage{listings}
 \lstset{
-    basicstyle=\ttfamily\small,
-    backgroundcolor=\color{gray!10},
+    basicstyle=\ttfamily\small\color{green!60!white},
+    backgroundcolor=\color{black!80},
     frame=single,
-    breaklines=true
+    rulecolor=\color{gray!50},
+    breaklines=true,
+    keywordstyle=\color{cyan!80!white},
+    commentstyle=\color{gray!60!white},
+    stringstyle=\color{yellow!70!white}
 }
 
 % Diagramas
 \usepackage{tikz}
-\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing, babel}
 
 % Matemáticas
 \usepackage{amsmath}
-
-% Colores
-\usepackage{xcolor}
 
 % Tablas
 \usepackage{booktabs}
@@ -83,11 +100,20 @@
 \usepackage{graphicx}
 \graphicspath{{assets/}}
 
-% Macro para emojis en headings
+% Macro para emojis en headings (evita MakeUppercase bug)
 \newcommand{\eh}[1]{\texorpdfstring{\emoji{#1}}{}}
 
 %% ============================================================
 \begin{document}
+
+% Dark mode: fondo y texto global
+\pagecolor{darkbg}
+\color{textlight}
+% Redefine \normalcolor so chapter/section titles and tables stay light
+\makeatletter
+\colorlet{normalcolor@tmp}{textlight}
+\def\normalcolor{\color{normalcolor@tmp}}
+\makeatother
 
 % Evitar que \MakeUppercase del book class rompa emojis en running headers
 \renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
@@ -99,11 +125,11 @@
     \vspace*{2cm}
     {\Huge\bfseries \emoji{globe-showing-americas} Apuntes de Redes de Datos\par}
     \vspace{0.5cm}
-    {\Large\bfseries Redes de Datos Seguras\par}
+    {\Large\bfseries Parte 1 --- Fundamentos OSI\par}
     \vspace{1cm}
     {\large Basado en MADO-31 --- UNAM Facultad de Ingeniería\par}
     \vspace{0.5cm}
-    {\large Aldo Zepeda Moctezuma\par}
+    {\large Aldo Zetina Muciño\par}
     \vspace{0.5cm}
     {\normalsize \today\par}
     \vspace{2cm}

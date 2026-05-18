@@ -22,7 +22,7 @@ La \textbf{dirección MAC} (Media Access Control) es un identificador de
 Teóricamente única en el mundo, aunque puede modificarse por software.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   MAC: 00:1A:2B:3C:4D:5E
        ├── 3 bytes ──┤├─── 3 bytes ───┤
            OUI              NIC-specific
@@ -33,7 +33,7 @@ Teóricamente única en el mundo, aunque puede modificarse por software.
     00:50:56 → VMware
     B8:27:EB → Raspberry Pi Foundation
     3C:22:FB → Apple
-\end{verbatim}
+\end{lstlisting}
 
 Tipos de direcciones MAC:
 \begin{itemize}
@@ -83,7 +83,7 @@ las respuestas ARP contra una tabla de DHCP snooping.
 
 \section{\eh{framed-picture} Trama Ethernet (Ethernet II Frame)}
 
-\begin{verbatim}
+\begin{lstlisting}
 Ethernet II Frame:
  ┌───────────┬──────────┬────────┬──────────────────┬─────┐
  │ Dst MAC   │ Src MAC  │  Type  │     Payload      │ FCS │
@@ -96,7 +96,7 @@ Ethernet II Frame:
    0x86DD  →  IPv6
    0x8100  →  VLAN tagged (802.1Q)
    0x88CC  →  LLDP (Link Layer Discovery Protocol)
-\end{verbatim}
+\end{lstlisting}
 
 El \textbf{FCS} (Frame Check Sequence) es un \textbf{CRC-32}: el emisor calcula
 un hash de la trama y lo agrega al final. El receptor recalcula; si no coincide,
@@ -159,7 +159,7 @@ organización lógica independiente de la ubicación física.
 El estándar \textbf{IEEE 802.1Q} agrega un tag de \textbf{4 bytes} a la trama
 Ethernet entre el campo Source MAC y el EtherType:
 
-\begin{verbatim}
+\begin{lstlisting}
  Trama 802.1Q:
  ┌──────────┬─────────┬────────┬─────┬──────────────┬────────┬─────────┐
  │ Dst MAC  │ Src MAC │ 0x8100 │ PCP │   VLAN ID    │  Type  │ Payload │
@@ -171,7 +171,7 @@ Ethernet entre el campo Source MAC y el EtherType:
    0    → reservado (sin VLAN)
    1    → VLAN default (no usar para datos)
    4095 → reservado
-\end{verbatim}
+\end{lstlisting}
 
 Tipos de puertos en un switch:
 \begin{itemize}

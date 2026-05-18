@@ -46,7 +46,7 @@ Pero es \textit{mucho más rápido} que mandar carta certificada.
 
 Header UDP --- solo \textbf{8 bytes}:
 
-\begin{verbatim}
+\begin{lstlisting}
   0              15 16             31
   ┌───────────────┬─────────────────┐
   │  Source Port  │ Destination Port│
@@ -55,7 +55,7 @@ Header UDP --- solo \textbf{8 bytes}:
   │    Length     │    Checksum     │
   │   (16 bits)   │   (16 bits)     │
   └───────────────┴─────────────────┘
-\end{verbatim}
+\end{lstlisting}
 
 Casos de uso de UDP: DNS, DHCP, TFTP, streaming de video (YouTube usa QUIC/UDP),
 VoIP, gaming online, NTP. \textbf{Velocidad $>$ confiabilidad.}
@@ -76,7 +76,7 @@ persona lo repite (retransmisión).
 
 \subsection{Header TCP --- 20 bytes mínimo}
 
-\begin{verbatim}
+\begin{lstlisting}
   0         1         2         3
   ┌──────────────────┬──────────────────┐
   │   Source Port    │  Dest. Port      │  (32 bits)
@@ -90,7 +90,7 @@ persona lo repite (retransmisión).
   ├────┴────┴─────────────┴─────────────┤
   │    Checksum         │  Urgent Ptr   │  (32 bits)
   └─────────────────────────────────────┘
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Flags TCP}
 
@@ -117,31 +117,31 @@ persona lo repite (retransmisión).
 \begin{center}
 \begin{tikzpicture}[
     msg/.style={-{Stealth}, thick},
-    nota/.style={font=\small\ttfamily}
+    nota/.style={font=\small\ttfamily, text=gray!70!white}
 ]
-\node[font=\bfseries] (client) at (0,  0) {Cliente};
-\node[font=\bfseries] (server) at (8,  0) {Servidor};
-\draw[thick] (0,-0.3) -- (0,-5.5);
-\draw[thick] (8,-0.3) -- (8,-5.5);
+\node[font=\bfseries, text=textlight] (client) at (0,  0) {Cliente};
+\node[font=\bfseries, text=textlight] (server) at (8,  0) {Servidor};
+\draw[thick, draw=gray!50!white] (0,-0.3) -- (0,-5.5);
+\draw[thick, draw=gray!50!white] (8,-0.3) -- (8,-5.5);
 
 % SYN
-\draw[msg, blue] (0,-1.0) -- (8,-1.8)
-    node[midway, above, sloped, font=\small] {\textbf{SYN} seq=1000};
+\draw[msg, cyan!70!white] (0,-1.0) -- (8,-1.8)
+    node[midway, above, sloped, font=\small, text=cyan!80!white] {\textbf{SYN} seq=1000};
 \node[nota, left] at (0,-1.0) {CLOSED};
 \node[nota, right] at (8,-1.8) {SYN\_RCVD};
 
 % SYN-ACK
-\draw[msg, orange] (8,-1.8) -- (0,-2.8)
-    node[midway, above, sloped, font=\small] {\textbf{SYN+ACK} seq=5000, ack=1001};
+\draw[msg, orange!80!white] (8,-1.8) -- (0,-2.8)
+    node[midway, above, sloped, font=\small, text=orange!80!white] {\textbf{SYN+ACK} seq=5000, ack=1001};
 \node[nota, left] at (0,-2.8) {SYN\_SENT};
 
 % ACK
-\draw[msg, green!60!black] (0,-2.8) -- (8,-3.6)
+\draw[msg, green!60!white] (0,-2.8) -- (8,-3.6)
     node[midway, above, sloped, font=\small] {\textbf{ACK} ack=5001};
 \node[nota, right] at (8,-3.6) {ESTABLISHED};
 \node[nota, left] at (0,-3.6) {ESTABLISHED};
 
-\node[font=\small\itshape, text=green!60!black] at (4,-4.4)
+\node[font=\small\itshape, text=green!60!white] at (4,-4.4)
     {Conexión establecida \emoji{check-mark-button} --- datos pueden fluir};
 \end{tikzpicture}
 \end{center}
@@ -157,7 +157,7 @@ el ACK), límite de tasa de SYNs, firewalls.
 
 \subsection{TCP 4-Way Termination}
 
-\begin{verbatim}
+\begin{lstlisting}
   Cliente              Servidor
      │─── FIN ──────────►│   "Terminé de enviar datos"
      │◄── ACK ───────────│   "Recibido, espera"
@@ -166,7 +166,7 @@ el ACK), límite de tasa de SYNs, firewalls.
      │─── ACK ──────────►│   "Ok, cerramos"
      │                   │
     [TIME_WAIT: 2×MSL ≈ 4 min]
-\end{verbatim}
+\end{lstlisting}
 
 \textbf{TIME\_WAIT:} el cliente espera para asegurarse de que el último ACK
 llegó. Si el servidor no lo recibió, retransmitirá el FIN y el cliente podrá

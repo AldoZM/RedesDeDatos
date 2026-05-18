@@ -59,7 +59,7 @@ SSH se compone de 3 sub-protocolos apilados:
 
 \subsection{Proceso de conexión SSH}
 
-\begin{verbatim}
+\begin{lstlisting}
   Cliente                         Servidor
      │──── TCP SYN ──────────────►│
      │◄─── TCP SYN-ACK ───────────│
@@ -80,7 +80,7 @@ SSH se compone de 3 sub-protocolos apilados:
      │──── [ENC] channel open ───►│  (abrir sesión de terminal)
      │◄─── [ENC] channel conf ────│
      │═══════ Sesión cifrada ══════│
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Autenticación por clave pública}
 

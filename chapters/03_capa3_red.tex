@@ -17,7 +17,7 @@ que sabe cómo llevar tu paquete de ciudad en ciudad hasta la dirección correct
 
 \subsection{Header IPv4 (20 bytes mínimo)}
 
-\begin{verbatim}
+\begin{lstlisting}
  0         1         2         3
  01234567890123456789012345678901
  ┌───────┬────┬────────────┬─────────────────────────┐
@@ -33,7 +33,7 @@ que sabe cómo llevar tu paquete de ciudad en ciudad hasta la dirección correct
  ├────────────────────────────────────────────────────┤
  │             Destination IP Address (32 bits)        │
  └────────────────────────────────────────────────────┘
-\end{verbatim}
+\end{lstlisting}
 
 Campos clave:
 \begin{itemize}
@@ -230,7 +230,7 @@ recepcionista (NAT table) sabe a qué extensión interna redirigir cada respuest
 \textbf{PAT} (Port Address Translation) = NAT overload: usa números de puerto
 para distinguir entre múltiples conexiones internas que comparten la misma IP pública:
 
-\begin{verbatim}
+\begin{lstlisting}
   Interno                    Router NAT               Internet
   192.168.1.10:54321  →  203.0.113.1:10001  →   servidor:443
   192.168.1.11:52010  →  203.0.113.1:10002  →   servidor:80
@@ -240,7 +240,7 @@ para distinguir entre múltiples conexiones internas que comparten la misma IP p
   Entrada interna       ↔  Entrada pública
   192.168.1.10:54321   ↔  203.0.113.1:10001
   192.168.1.11:52010   ↔  203.0.113.1:10002
-\end{verbatim}
+\end{lstlisting}
 
 \section{\eh{globe-with-meridians} IPv6 (RFC 8200, 2017)}
 

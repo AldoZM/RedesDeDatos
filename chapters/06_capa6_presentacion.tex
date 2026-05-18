@@ -144,7 +144,7 @@ Compresión TLS        & Sí (CRIME attack) & \emoji{cross-mark} Eliminada \\
 
 \subsection{Handshake TLS 1.3 simplificado}
 
-\begin{verbatim}
+\begin{lstlisting}
   Cliente                         Servidor
      │─── ClientHello ──────────►│  (versiones soportadas, key_share,
      │                            │   cipher suites)
@@ -156,7 +156,7 @@ Compresión TLS        & Sí (CRIME attack) & \emoji{cross-mark} Eliminada \\
      │◄── {Finished} ─────────────│
      │─── {Finished} ────────────►│
      │═══════════ Application Data ════════════│
-\end{verbatim}
+\end{lstlisting}
 
 \begin{cuidado}
 \textbf{Perfect Forward Secrecy (PFS):} TLS 1.3 usa \textbf{ECDHE} para el
@@ -181,7 +181,7 @@ raíz. Cuando visitas \texttt{google.com}, el certificado está firmado por
 una CA de confianza → el navegador muestra el candado.
 \end{concepto}
 
-\begin{verbatim}
+\begin{lstlisting}
   Cadena de confianza (Certificate Chain):
 
   Root CA (en tu navegador/OS)
@@ -191,7 +191,7 @@ una CA de confianza → el navegador muestra el candado.
                          ├── Public Key: (clave pública del servidor)
                          ├── Valid: 2024-01-01 a 2025-01-01
                          └── Signature: (firmado por Intermediate CA)
-\end{verbatim}
+\end{lstlisting}
 
 \begin{ejemplo}
 \textbf{Let's Encrypt} (2015): CA gratuita y automatizada. Democratizó HTTPS.

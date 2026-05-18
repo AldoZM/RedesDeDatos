@@ -63,11 +63,11 @@ exacto de los 8 hilos dentro del conector RJ-45. Son publicadas por TIA
 
 \begin{center}
 \begin{tikzpicture}[
-    pin/.style={rectangle, draw, minimum width=0.65cm, minimum height=1.4cm,
-                font=\tiny\bfseries, align=center}
+    pin/.style={rectangle, draw=gray!60!white, minimum width=0.65cm, minimum height=1.4cm,
+                font=\tiny\bfseries, align=center, text=textlight}
 ]
 % T568-B
-\node[font=\bfseries\small] at (2.6, 2.2) {T568-B (más común en México)};
+\node[font=\bfseries\small, text=textlight] at (2.6, 2.2) {T568-B (más común en México)};
 \node[pin, fill=orange!60]          at (0.65,0.7) {};
 \node[pin, fill=orange!90]          at (1.3, 0.7) {};
 \node[pin, fill=green!50]           at (1.95,0.7) {};
@@ -162,7 +162,7 @@ Uso                 & Dentro de edificios & Entre ciudades, ISP, Data Centers \\
 \caption{Fibra multimodo vs monomodo}
 \end{table}
 
-\begin{verbatim}
+\begin{lstlisting}
    Multimodo                    Monomodo
    ┌─────────────────┐          ┌─────────────────┐
    │ núcleo 50/62µm  │ ←muchos  │ núcleo 8-10µm   │ ←un solo
@@ -170,7 +170,7 @@ Uso                 & Dentro de edificios & Entre ciudades, ISP, Data Centers \\
    └─────────────────┘          └─────────────────┘
    Dispersión modal → límite    Sin dispersión → largas distancias
    de distancia
-\end{verbatim}
+\end{lstlisting}
 
 \section{\eh{satellite-antenna} Wi-Fi --- Estándares IEEE 802.11}
 
@@ -241,18 +241,17 @@ Los \textbf{6 subsistemas} de un sistema de cableado estructurado:
 
 \begin{center}
 \begin{tikzpicture}[
-    box/.style={rectangle, draw, rounded corners, minimum width=2.8cm,
-                minimum height=0.8cm, font=\small, align=center, fill=blue!10},
-    arr/.style={-{Stealth}, thick}
+    box/.style={rectangle, draw=gray!50!white, rounded corners, minimum width=2.8cm,
+                minimum height=0.8cm, font=\small, align=center, fill=blue!30!black, text=textlight},
+    arr/.style={-{Stealth}, thick, draw=gray!60!white}
 ]
-\node[box, fill=purple!20] (isp)   at (0, 4)   {ISP / Carrier};
-\node[box, fill=orange!20] (er)    at (0, 2.8)  {Sala de Equipos\\(Subsistema 5)};
-\node[box, fill=yellow!20] (back)  at (0, 1.6)  {Backbone Vertical\\(Subsistema 4)};
-\node[box, fill=green!20]  (tr)    at (0, 0.4)  {Armario TR\\(Subsistema 3)};
-\node[box, fill=cyan!20]   (horiz) at (0, -0.8) {Cable Horizontal\\(Subsistema 1)};
-\node[box, fill=gray!15]   (wa)    at (0, -2.0) {Área de Trabajo\\(Subsistema 2)};
-\node[box, fill=red!15]    (ent)   at (3.5,2.8) {Entrada de Servicios\\(Subsistema 6)};
-
+\node[box, fill=purple!35!black] (isp)   at (0, 4)   {ISP / Carrier};
+\node[box, fill=orange!35!black] (er)    at (0, 2.8)  {Sala de Equipos\\(Subsistema 5)};
+\node[box, fill=yellow!25!black] (back)  at (0, 1.6)  {Backbone Vertical\\(Subsistema 4)};
+\node[box, fill=green!35!black]  (tr)    at (0, 0.4)  {Armario TR\\(Subsistema 3)};
+\node[box, fill=cyan!35!black]   (horiz) at (0, -0.8) {Cable Horizontal\\(Subsistema 1)};
+\node[box, fill=gray!40!black]   (wa)    at (0, -2.0) {Área de Trabajo\\(Subsistema 2)};
+\node[box, fill=red!35!black]    (ent)   at (3.5,2.8) {Entrada de Servicios\\(Subsistema 6)};
 \draw[arr] (isp.south) -- (er.north);
 \draw[arr] (er.south)  -- (back.north);
 \draw[arr] (back.south)-- (tr.north);
