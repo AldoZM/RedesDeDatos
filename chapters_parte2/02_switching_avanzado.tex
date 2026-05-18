@@ -108,13 +108,13 @@ TLS protege el contenido; MACsec protege el cable físico en cada tramo.
 
 \subsection{Formato del frame MACsec}
 
-\begin{verbatim}
+\begin{lstlisting}
 +----------+----------+------------+-----------------+----------+----------+
 | Dst MAC  | Src MAC  | 0x88E5     |    SecTAG       | Payload  |   ICV    |
 | 6 bytes  | 6 bytes  | (S-Tag ET) |  8-16 bytes     | cifrado  | 16 bytes |
 +----------+----------+------------+-----------------+----------+----------+
                                     TCI|AN|SL|PN
-\end{verbatim}
+\end{lstlisting}
 
 \begin{cuidado}
 MACsec requiere soporte en \textbf{hardware} (ASIC). No todos los switches lo implementan.
@@ -152,14 +152,14 @@ El carrier solo ve S-Tags; los C-Tags son opacos para él.
 
 \subsection{Formato del frame QinQ}
 
-\begin{verbatim}
+\begin{lstlisting}
 +---------+---------+----------+---------+----------+---------+
 | Dst MAC | Src MAC | 0x88A8   | S-Tag   | 0x8100   | C-Tag   |
 | 6 bytes | 6 bytes |(S-Tag ET)|(4 bytes)|(C-Tag ET)|(4 bytes)|
 +---------+---------+----------+---------+----------+---------+
           ^-- Carrier procesa hasta aquí
                                           ^-- Cliente ve esto
-\end{verbatim}
+\end{lstlisting}
 
 \begin{ejemplo}
 Telmex te vende metro ethernet para conectar Polanco con Vallejo. Internamente usa S-Tag

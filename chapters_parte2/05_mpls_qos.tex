@@ -1,1 +1,204 @@
-﻿% TODO
+% chapters_parte2/05_mpls_qos.tex
+
+\chapter{\eh{railway-track} MPLS y QoS}
+
+El Internet público trata todos los paquetes igual: si hay congestión, se pierden
+indiscriminadamente. Eso es inaceptable para voz, video en tiempo real, o los SLAs
+de un cliente empresarial que paga por un enlace dedicado. \textbf{MPLS} permite
+ingeniería de tráfico precisa; \textbf{QoS} garantiza que el tráfico crítico siempre
+tenga recursos.
+
+% ─────────────────────────────────────────────
+\section{\eh{label} MPLS --- Multiprotocol Label Switching}
+
+\begin{concepto}
+En IP normal, cada router examina la dirección destino y hace una búsqueda en su
+tabla de routing (\emph{longest prefix match}) para cada paquete. MPLS reemplaza
+esa búsqueda repetida por un sistema de \textbf{etiquetas}: el primer router asigna
+una etiqueta numérica al paquete y los routers intermedios solo hacen \emph{swap} de
+etiquetas en O(1), sin buscar en tablas de routing completas.
+
+\begin{itemize}
+    \item \textbf{LSR (Label Switch Router):} router en el núcleo MPLS que solo hace
+          swap de etiquetas.
+    \item \textbf{LER (Label Edge Router):} router en el borde que asigna (push) o
+          elimina (pop) etiquetas.
+    \item \textbf{LSP (Label Switched Path):} el camino predeterminado que sigue un
+          flujo de tráfico a través de la red MPLS.
+    \item \textbf{FEC (Forwarding Equivalence Class):} conjunto de paquetes que reciben
+          el mismo tratamiento de forwarding (misma etiqueta, mismo LSP).
+\end{itemize}
+\end{concepto}
+
+\subsection{Formato de la etiqueta MPLS}
+
+\begin{lstlisting}
+ 31       20 19    16 15   8 7        0
++----------+---------+------+----------+
+|  Label   |   Exp   |  S   |   TTL    |
+| (20 bits)|  (3 b)  | (1b) |  (8 b)   |
++----------+---------+------+----------+
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{Label (20 bits):} identificador del LSP. Hasta $2^{20} = 1{,}048{,}576$ etiquetas.
+    \item \textbf{Exp (3 bits):} Traffic Class para QoS (se mapea a DSCP).
+    \item \textbf{S (Stack bit):} 1 = última etiqueta del stack (MPLS permite etiquetas anidadas).
+    \item \textbf{TTL (8 bits):} igual que el TTL de IP, evita loops.
+\end{itemize}
+
+La etiqueta MPLS se inserta entre el header Ethernet (L2) y el header IP (L3),
+por eso se llama protocolo de ``capa 2.5''.
+
+% ─────────────────────────────────────────────
+\section{\eh{arrows-counterclockwise} Operaciones de etiquetas}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Operación} & \textbf{Quién la hace} & \textbf{Acción} \\
+\midrule
+\textbf{Push}  & LER de ingreso  & Agrega etiqueta al paquete IP \\
+\textbf{Swap}  & LSR en el núcleo & Reemplaza etiqueta por la siguiente del LSP \\
+\textbf{Pop}   & LER de egreso (o penúltimo hop) & Elimina etiqueta, entrega IP normal \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{ejemplo}
+\textbf{Paquete de 192.168.1.1 $\to$ 10.0.0.1 a través de red MPLS de ISP:}
+\begin{enumerate}
+    \item \textbf{LER-A (ingreso):} reconoce FEC ``destino 10.0.0.0/8'', hace \textbf{push}
+          etiqueta 200. Paquete: [L2][MPLS:200][IP:10.0.0.1][\ldots]
+    \item \textbf{LSR-1:} etiqueta 200 $\to$ tabla dice swap a 350 hacia LSR-2.
+          Paquete: [L2][MPLS:350][IP:10.0.0.1][\ldots]
+    \item \textbf{LSR-2:} etiqueta 350 $\to$ swap a 120 hacia LER-B.
+    \item \textbf{LER-B (egreso):} hace \textbf{pop}, entrega paquete IP puro.
+          Forwarding normal basado en IP hacia 10.0.0.1.
+\end{enumerate}
+Los LSRs intermedios nunca miraron la IP destino. Solo swapearon etiquetas.
+\end{ejemplo}
+
+% ─────────────────────────────────────────────
+\section{\eh{wrench} MPLS Traffic Engineering (TE)}
+
+\begin{concepto}
+Con routing IP normal, el tráfico siempre toma el camino de menor costo (shortest path).
+Si hay un enlace congestionado pero otro libre con mayor costo, IP lo ignora. MPLS-TE
+permite \textbf{forzar} LSPs por caminos específicos, balancear carga por múltiples
+rutas, y garantizar ancho de banda reservado para flujos críticos.
+
+El protocolo de señalización para MPLS-TE es \textbf{RSVP-TE} (Resource Reservation
+Protocol - Traffic Engineering), que reserva recursos a lo largo del LSP.
+\end{concepto}
+
+\begin{moderno}
+\emoji{rocket} \textbf{Segment Routing (SR-MPLS):} la evolución moderna de MPLS-TE.
+En lugar de señalización RSVP hop-a-hop, el router de ingreso codifica el camino
+completo como un \emph{stack de etiquetas} (segment list). No hay estado de LSP en
+los routers intermedios. Google, Facebook y los grandes ISPs migraron de RSVP-TE
+a Segment Routing por su simplicidad operacional.
+\end{moderno}
+
+% ─────────────────────────────────────────────
+\section{\eh{balance-scale} QoS --- Quality of Service}
+
+\begin{concepto}
+\textbf{QoS} es el conjunto de mecanismos que garantiza comportamiento predecible
+para tráfico crítico en una red compartida. Sin QoS, todos los paquetes compiten
+igual por ancho de banda y, en congestión, cualquier flujo puede perder paquetes.
+\end{concepto}
+
+\subsection{Los tres problemas que QoS resuelve}
+
+\begin{cuidado}
+\begin{itemize}
+    \item \textbf{Bandwidth:} un flujo puede consumir todo el ancho de banda disponible
+          (Netflix descargando vs. llamada VoIP en el mismo enlace).
+    \item \textbf{Delay (latencia):} colas llenas aumentan la latencia. Voz tolera máximo
+          150ms one-way; un backup FTP puede tolerar segundos.
+    \item \textbf{Jitter (variación de latencia):} paquetes de voz deben llegar con
+          intervalos regulares. Jitter alto causa distorsión de audio.
+\end{itemize}
+\end{cuidado}
+
+\subsection{Modelo DiffServ y DSCP}
+
+\begin{concepto}
+\textbf{DiffServ (Differentiated Services)} es el modelo dominante de QoS en Internet
+y redes empresariales. Cada paquete IP lleva un campo \textbf{DSCP (Differentiated
+Services Code Point)} de 6 bits en el header IP (parte del campo ToS/Traffic Class).
+Los routers aplican tratamiento diferenciado según ese valor, sin mantener estado
+por flujo.
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Clase} & \textbf{DSCP} & \textbf{Valor} & \textbf{Uso típico} \\
+\midrule
+EF (Expedited Forwarding)   & EF   & 46 (101110) & VoIP, videoconferencia \\
+AF41 (Assured Forwarding)   & AF41 & 34 (100010) & Video interactivo \\
+AF31                         & AF31 & 26 (011010) & Video streaming \\
+AF21                         & AF21 & 18 (010010) & Transacciones críticas \\
+AF11                         & AF11 & 10 (001010) & Datos de negocios \\
+CS0 (Best Effort)            & BE   &  0 (000000) & Tráfico normal \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Mecanismos de QoS}
+
+\begin{center}
+\begin{tikzpicture}[
+    box/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                rectangle, rounded corners=4pt, minimum width=3cm,
+                minimum height=1cm, font=\small\bfseries, align=center},
+    arrow/.style={->, thick, draw=gray!60!white},
+]
+    \node[box] (class) at (0,0)    {Clasificación\\{\tiny DSCP, ACL, NBAR}};
+    \node[box] (mark)  at (4,0)    {Marcado\\{\tiny Set DSCP}};
+    \node[box] (queue) at (8,0)    {Colas\\{\tiny LLQ, WFQ, CBWFQ}};
+    \node[box] (sched) at (8,-2)   {Scheduling\\{\tiny FIFO, WRR, SP}};
+    \node[box] (shape) at (4,-2)   {Shaping/Policing\\{\tiny Token bucket}};
+    \node[box] (drop)  at (0,-2)   {Drop Policy\\{\tiny WRED, tail drop}};
+
+    \draw[arrow] (class) -- (mark);
+    \draw[arrow] (mark)  -- (queue);
+    \draw[arrow] (queue) -- (sched);
+    \draw[arrow] (sched) -- (shape);
+    \draw[arrow] (shape) -- (drop);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{LLQ (Low Latency Queue):} cola de alta prioridad para VoIP/video.
+          Se sirve primero, siempre. Garantiza latencia mínima.
+    \item \textbf{CBWFQ (Class-Based WFQ):} asigna porcentajes de ancho de banda
+          garantizado por clase. Si nadie más usa su porción, puede tomar el exceso.
+    \item \textbf{WRED (Weighted Random Early Detection):} descarta paquetes de baja
+          prioridad antes de que la cola se llene, evitando TCP global synchronization.
+    \item \textbf{Token Bucket:} modelo para policing/shaping. Se ``acumulan fichas''
+          a una tasa CIR (Committed Information Rate); cada paquete consume fichas.
+          Sin fichas $\to$ paquete se descarta (policing) o se retrasa (shaping).
+\end{itemize}
+
+\begin{ejemplo}
+\textbf{QoS en una empresa con 100 Mbps hacia Internet:}
+\begin{itemize}
+    \item VoIP (DSCP EF): LLQ, 10 Mbps garantizados, latencia $<$10ms.
+    \item Videoconferencia (DSCP AF41): CBWFQ, 30 Mbps garantizados.
+    \item CRM/ERP (DSCP AF21): CBWFQ, 25 Mbps garantizados.
+    \item Navegación general (DSCP BE): 35 Mbps restantes, WRED activo.
+\end{itemize}
+Si las llamadas VoIP no usan sus 10 Mbps, el resto puede aprovecharlos.
+Pero si VoIP necesita esos 10 Mbps, los tiene garantizados sin importar lo demás.
+\end{ejemplo}
+
+\begin{moderno}
+\emoji{rocket} \textbf{QoS en la nube:} AWS, GCP y Azure ofrecen Enhanced Networking
+(SR-IOV) para reducir latencia en instancias. Google Cloud usa \textbf{Andromeda},
+su stack de virtualización de red que aplica QoS a nivel de hipervisor. En Kubernetes,
+los \texttt{LimitRange} y \texttt{ResourceQuota} son la capa de QoS de aplicación;
+el QoS de red real requiere CNI plugins como Cilium con bandwidth enforcement via eBPF.
+\end{moderno}

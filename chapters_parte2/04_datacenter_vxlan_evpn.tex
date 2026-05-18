@@ -1,1 +1,228 @@
-﻿% TODO
+% chapters_parte2/04_datacenter_vxlan_evpn.tex
+
+\chapter{\eh{office-building} Datacenter: VxLAN y EVPN}
+
+Los datacenters modernos tienen un problema que las VLANs clásicas no pueden resolver:
+millones de tenants (clientes), VMs que migran entre servidores físicos sin cambiar de IP,
+y redes que deben estirarse entre edificios y regiones geográficas. VxLAN + EVPN es la
+solución que usan AWS, Google Cloud, Azure y cualquier datacenter serio.
+
+% ─────────────────────────────────────────────
+\section{\eh{warning} Limitaciones de VLANs en Datacenter}
+
+\begin{cuidado}
+\begin{itemize}
+    \item \textbf{4094 VLANs máximo.} Una nube pública tiene millones de clientes, cada
+          uno necesita su red aislada. 4094 no alcanza ni para empezar.
+    \item \textbf{STP no escala.} Con miles de switches, Spanning Tree converge lentamente
+          y bloquea enlaces que podrían estar transmitiendo.
+    \item \textbf{VMs migran físicamente.} Cuando vMotion mueve una VM de un servidor a
+          otro, necesita mantener la misma IP (mismo L2). Con VLANs, eso requiere que
+          ambos servidores estén en el mismo dominio L2, lo que limita la distancia física.
+    \item \textbf{L2 sobre L3 es complejo.} Los datacenters rutean internamente (L3 escala),
+          pero las aplicaciones esperan L2 (broadcast, ARP). VLANs no resuelven esto.
+\end{itemize}
+\end{cuidado}
+
+% ─────────────────────────────────────────────
+\section{\eh{package} VxLAN --- Virtual Extensible LAN}
+
+\begin{concepto}
+\textbf{VxLAN} crea un \emph{overlay} L2 sobre una red L3. Encapsula frames Ethernet
+completos dentro de paquetes UDP, permitiendo que dos VMs en servidores físicamente
+separados (incluso en datacenters distintos) crean que están en el mismo segmento Ethernet.
+
+\begin{itemize}
+    \item \textbf{VNI (VxLAN Network Identifier):} 24 bits $\to$ \textbf{16 millones}
+          de segmentos virtuales. Resuelve el límite de 4094 VLANs.
+    \item \textbf{VTEP (VxLAN Tunnel Endpoint):} el dispositivo que encapsula/desencapsula.
+          Puede ser un switch físico (Leaf) o un servidor Linux con OVS.
+    \item \textbf{Puerto UDP:} 4789 (estándar IANA).
+\end{itemize}
+\end{concepto}
+
+\subsection{Formato del frame VxLAN}
+
+\begin{lstlisting}
++---------------+----------+----------+-----------+------------------+
+| Outer Ethernet| Outer IP | Outer UDP| VxLAN Hdr | Inner Ethernet   |
+| (VTEP src/dst)|(VTEP IPs)| dst:4789 | (VNI 24b) | Frame original   |
+| 14 bytes      | 20 bytes | 8 bytes  | 8 bytes   | variable         |
++---------------+----------+----------+-----------+------------------+
+                  ^ Red física underlay              ^ Red virtual overlay
+\end{lstlisting}
+
+\begin{itemize}
+    \item El frame Ethernet original (inner) viaja intacto dentro del túnel UDP.
+    \item La red underlay solo ve IPs de VTEPs; no sabe nada de las VMs.
+    \item \textbf{Overhead total:} 50 bytes. En enlaces de 10 GbE, es despreciable.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{deciduous-tree} Topología Spine-Leaf}
+
+\begin{concepto}
+Las redes de datacenter tradicionales tienen 3 capas: Core $\to$ Distribution $\to$ Access.
+Spanning Tree bloquea links redundantes y la latencia varía según el camino.
+
+\textbf{Spine-Leaf} reemplaza esas 3 capas con solo 2, eliminando STP y maximizando
+el uso de todos los enlaces mediante ECMP (Equal-Cost Multi-Path).
+\end{concepto}
+
+\subsection{Reglas del diseño Spine-Leaf}
+
+\begin{itemize}
+    \item Cada \textbf{Leaf} conecta a \textbf{todos} los Spines (ningún Leaf conecta
+          directamente a otro Leaf).
+    \item Cada \textbf{Spine} conecta a \textbf{todos} los Leaves (ningún Spine conecta
+          a otro Spine).
+    \item Entre cualquier par de servidores: \textbf{máximo 2 hops} (Leaf $\to$ Spine
+          $\to$ Leaf). Latencia predecible y constante.
+    \item Para escalar: agregar más Leaves (más puertos de servidor) o más Spines (más
+          ancho de banda de east-west).
+\end{itemize}
+
+\subsection{Diagrama Spine-Leaf con VxLAN}
+
+\begin{center}
+\begin{tikzpicture}[
+    spine/.style={draw=cyan!60!white, fill=darkcardviolet, text=textlight,
+                  rectangle, rounded corners=4pt, minimum width=2.2cm,
+                  minimum height=0.8cm, font=\small\bfseries, align=center},
+    leaf/.style={draw=green!50!white, fill=darkcardgreen, text=textlight,
+                 rectangle, rounded corners=4pt, minimum width=2.2cm,
+                 minimum height=0.8cm, font=\small\bfseries, align=center},
+    srv/.style={draw=gray!50!white, fill=darkcardgray, text=textlight,
+                rectangle, minimum width=1.5cm, minimum height=0.6cm,
+                font=\tiny, align=center},
+    link/.style={thick, draw=gray!60!white},
+    vtep/.style={text=yellow!70!white, font=\tiny\itshape},
+]
+    % Spines
+    \node[spine] (s1) at (1.5,4) {Spine 1};
+    \node[spine] (s2) at (4.5,4) {Spine 2};
+
+    % Leaves
+    \node[leaf] (l1) at (0,2) {Leaf 1\\VTEP};
+    \node[leaf] (l2) at (3,2) {Leaf 2\\VTEP};
+    \node[leaf] (l3) at (6,2) {Leaf 3\\VTEP};
+
+    % Servers
+    \node[srv] (srv1) at (-0.7,0.3) {VM-A\\10.0.1.10};
+    \node[srv] (srv2) at (0.7,0.3)  {VM-B\\10.0.1.11};
+    \node[srv] (srv3) at (2.3,0.3)  {VM-C\\10.0.2.10};
+    \node[srv] (srv4) at (3.7,0.3)  {VM-D\\10.0.2.11};
+    \node[srv] (srv5) at (5.3,0.3)  {VM-E\\10.0.3.10};
+    \node[srv] (srv6) at (6.7,0.3)  {VM-F\\10.0.3.11};
+
+    % Spine-Leaf links
+    \draw[link] (l1) -- (s1); \draw[link] (l1) -- (s2);
+    \draw[link] (l2) -- (s1); \draw[link] (l2) -- (s2);
+    \draw[link] (l3) -- (s1); \draw[link] (l3) -- (s2);
+
+    % Leaf-Server links
+    \draw[link] (l1) -- (srv1); \draw[link] (l1) -- (srv2);
+    \draw[link] (l2) -- (srv3); \draw[link] (l2) -- (srv4);
+    \draw[link] (l3) -- (srv5); \draw[link] (l3) -- (srv6);
+
+    % VxLAN tunnel annotation
+    \draw[draw=yellow!60!white, dashed, thick, bend left=20]
+        (l1) to node[vtep, above] {VxLAN tunnel VNI=100} (l3);
+\end{tikzpicture}
+
+{\small VM-A y VM-E están en el mismo VNI 100 (misma red virtual) aunque en Leaves distintos.
+El tráfico viaja encapsulado en UDP: Leaf1 $\to$ Spine $\to$ Leaf3.}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{satellite-antenna} EVPN --- Ethernet VPN}
+
+\begin{concepto}
+VxLAN sola tiene un problema: ¿cómo sabe un VTEP a qué otro VTEP enviar un frame si
+no conoce la MAC destino? La respuesta naïve es \textbf{flood-and-learn}: inundar el
+BUM traffic (Broadcast, Unknown-unicast, Multicast) a todos los VTEPs y aprender MACs
+por el tráfico de respuesta. Eso no escala con miles de VTEPs.
+
+\textbf{EVPN} usa \textbf{BGP} como protocolo de control para distribuir información
+MAC/IP entre VTEPs. Cada VTEP anuncia las MACs/IPs de sus VMs locales vía BGP, y todos
+los demás VTEPs aprenden esa información \emph{antes} de que llegue el primer paquete.
+Resultado: no hay flooding innecesario.
+\end{concepto}
+
+\subsection{Route Types de EVPN}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Type} & \textbf{Nombre} & \textbf{Propósito} \\
+\midrule
+Type 1 & Ethernet A-D Route        & Multihoming, failover rápido \\
+Type 2 & MAC/IP Advertisement      & Aprender MAC + IP de VMs remotas \\
+Type 3 & Inclusive Multicast Route & Registro para recibir BUM traffic \\
+Type 4 & Ethernet Segment Route    & Descubrimiento de multihoming \\
+Type 5 & IP Prefix Route           & Routing L3 entre VNIs distintos \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{ejemplo}
+\textbf{Flujo con EVPN:}
+\begin{enumerate}
+    \item VM-A (en Leaf1) envía ARP Request buscando VM-E.
+    \item Leaf1 tiene en su BGP EVPN table: VM-E (MAC=aa:bb:...) está en VTEP Leaf3
+          (IP=10.1.1.3), VNI=100. Aprendido vía Type 2 Route.
+    \item Leaf1 \textbf{no floodea}. Responde el ARP directamente (ARP suppression)
+          con la MAC de VM-E desde su tabla local.
+    \item VM-A envía el frame. Leaf1 lo encapsula en VxLAN hacia Leaf3.
+    \item Leaf3 desencapsula y entrega a VM-E.
+\end{enumerate}
+Sin EVPN: el ARP hubiera sido floodeado a todos los Leaves. Con EVPN: cero flooding.
+\end{ejemplo}
+
+\subsection{Configuración básica (Cisco NX-OS)}
+
+\begin{codigo}
+\begin{lstlisting}
+! Habilitar VxLAN y EVPN
+feature nv overlay
+feature bgp
+nv overlay evpn
+
+! NVE interface (VTEP)
+interface nve1
+  no shutdown
+  source-interface loopback0
+  member vni 10100
+    ingress-replication protocol bgp
+
+! BGP con address-family EVPN
+router bgp 65001
+  address-family l2vpn evpn
+    advertise-pip
+
+neighbor 10.1.1.2 remote-as 65001
+  address-family l2vpn evpn
+    send-community extended
+\end{lstlisting}
+\end{codigo}
+
+% ─────────────────────────────────────────────
+\section{\eh{up-arrow} Routing Asimétrico vs Simétrico en VxLAN}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Modelo} & \textbf{Dónde rutea} & \textbf{Trade-off} \\
+\midrule
+Asimétrico & VTEP de ingreso rutea, VTEP de egreso bridgea & Simple pero cada Leaf necesita todos los VNIs \\
+Simétrico  & Ambos VTEPs rutean, L3 VNI dedicado           & Más escalable, cada Leaf solo necesita sus VNIs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{moderno}
+\emoji{rocket} \textbf{VxLAN + EVPN en la nube pública:} AWS usa una variante propietaria
+de estos principios internamente. Cada Availability Zone tiene su fabric de Leaf/Spine.
+El tráfico entre AZs viaja encapsulado (propietario, no OpenFlow). Los Security Groups
+de AWS se implementan sobre estos mismos mecanismos de overlay.
+\end{moderno}

@@ -1,1 +1,194 @@
-﻿% TODO
+% chapters_parte2/07_cloud_networking.tex
+
+\chapter{\eh{cloud} Cloud Networking}
+
+Las nubes públicas no son simplemente servidores remotos con Internet rápido. Son
+redes enteras diseñadas desde cero para escala masiva, multi-tenancy y automatización
+via API. Entender su arquitectura diferencia a un ingeniero que \emph{usa} la nube
+de uno que \emph{diseña} sobre ella.
+
+% ─────────────────────────────────────────────
+\section{\eh{building-construction} VPC --- Virtual Private Cloud}
+
+\begin{concepto}
+Una \textbf{VPC (Virtual Private Cloud)} es una red virtual aislada dentro de la
+nube pública. Cada cliente tiene su propia VPC con su propio espacio de direcciones IP,
+tablas de routing, y políticas de seguridad. El aislamiento entre VPCs lo garantiza
+el hypervisor/SDN del proveedor, no hardware dedicado.
+
+Componentes fundamentales (nomenclatura AWS, análogos en GCP/Azure):
+\begin{itemize}
+    \item \textbf{CIDR block:} rango IP de la VPC (ej. 10.0.0.0/16).
+    \item \textbf{Subnets:} subdivisiones de la VPC, asociadas a una zona de disponibilidad.
+    \item \textbf{Route Tables:} controlan a dónde va el tráfico de cada subnet.
+    \item \textbf{Internet Gateway (IGW):} permite que subnets públicas accedan a Internet.
+    \item \textbf{NAT Gateway:} permite que subnets privadas salgan a Internet sin
+          ser directamente accesibles.
+    \item \textbf{Security Groups:} firewall stateful por instancia (como iptables).
+    \item \textbf{NACLs (Network ACLs):} firewall stateless por subnet.
+\end{itemize}
+\end{concepto}
+
+\subsection{Arquitectura típica multi-tier}
+
+\begin{center}
+\begin{tikzpicture}[
+    tier/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                 rectangle, rounded corners=4pt, minimum width=7cm,
+                 minimum height=0.9cm, font=\small\bfseries, align=center},
+    gw/.style={draw=yellow!60!white, fill=darkcardviolet, text=textlight,
+               rectangle, rounded corners=4pt, minimum width=2cm,
+               minimum height=0.7cm, font=\tiny, align=center},
+    arrow/.style={->, thick, draw=gray!60!white},
+]
+    \node[gw] (igw)  at (0, 6)   {Internet Gateway};
+    \node[tier] (pub)  at (0, 4.5) {Subnet Pública: Load Balancer, Bastion};
+    \node[gw] (nat)  at (4, 3)   {NAT GW};
+    \node[tier] (app)  at (0, 3)   {Subnet Privada: App Servers, APIs};
+    \node[tier] (db)   at (0, 1.5) {Subnet Privada: Bases de Datos, Caches};
+    \node[tier] (vpc)  at (0, 0)   {VPC: 10.0.0.0/16};
+
+    \draw[arrow] (igw) -- (pub);
+    \draw[arrow] (pub) -- (app);
+    \draw[arrow] (app) -- (db);
+    \draw[arrow] (app) -- (nat);
+    \draw[arrow, dashed] (nat) -- node[font=\tiny, text=yellow!70!white, right] {Internet} (igw);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+    \item Subnet pública: accesible desde Internet (IGW en route table).
+    \item Subnet privada de app: no accesible directamente, sale a Internet vía NAT.
+    \item Subnet privada de DB: sin acceso a Internet en ninguna dirección.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{link} Conectividad entre VPCs y On-Premise}
+
+\subsection{VPC Peering}
+
+\begin{concepto}
+Conexión privada entre dos VPCs (mismo o distinto account, misma o distinta región).
+El tráfico viaja por la backbone del proveedor, no por Internet. \textbf{No transitivo:}
+si A está peered con B, y B con C, A \textbf{no} puede hablar con C a través de B.
+\end{concepto}
+
+\subsection{Transit Gateway / Cloud Router}
+
+\begin{concepto}
+Solución hub-and-spoke para conectar muchas VPCs y redes on-premise. En lugar de
+$N^2$ peerings, cada VPC conecta al Transit Gateway (AWS) o Cloud Router (GCP).
+Sí es transitivo. Permite routing más granular y segmentación de tráfico.
+\end{concepto}
+
+\subsection{VPN y Direct Connect / Dedicated Interconnect}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Opción} & \textbf{Características} & \textbf{Cuándo usar} \\
+\midrule
+VPN (IPsec)       & Sobre Internet, encriptado, rápido de desplegar & Dev/test, fallback \\
+Direct Connect    & Enlace físico dedicado, bajo jitter, SLA fuerte & Producción crítica \\
+PrivateLink       & Acceso a servicios del proveedor sin Internet     & S3, RDS, APIs internas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{bar-chart} Load Balancing en la nube}
+
+\begin{concepto}
+Los proveedores cloud ofrecen load balancers gestionados que escalan automáticamente.
+La elección depende del tipo de tráfico:
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Tipo} & \textbf{Capa OSI} & \textbf{AWS} & \textbf{GCP} \\
+\midrule
+L4 TCP/UDP    & Transporte & Network LB (NLB)    & TCP/UDP LB \\
+L7 HTTP/HTTPS & Aplicación & Application LB (ALB) & HTTP(S) LB \\
+Global anycast & L7 global & CloudFront + ALB     & Global HTTP LB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{ejemplo}
+\textbf{ALB (Application Load Balancer)} puede enrutar por:
+\begin{itemize}
+    \item Host header: \texttt{api.ejemplo.com} $\to$ Target Group A;
+          \texttt{admin.ejemplo.com} $\to$ Target Group B.
+    \item Path: \texttt{/api/v1} $\to$ servicio legacy; \texttt{/api/v2} $\to$ servicio nuevo.
+    \item Header HTTP: \texttt{X-Version: beta} $\to$ 10\% canary deployment.
+    \item Peso: 90\% tráfico a stable, 10\% a canary (weighted target groups).
+\end{itemize}
+\end{ejemplo}
+
+% ─────────────────────────────────────────────
+\section{\eh{lock} Seguridad de Red en la Nube}
+
+\subsection{Security Groups vs NACLs}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{Security Groups} & \textbf{NACLs} \\
+\midrule
+Estado         & Stateful (respuesta automática) & Stateless (reglas explícitas ida y vuelta) \\
+Nivel          & Instancia (ENI)                 & Subnet \\
+Reglas         & Solo allow                      & Allow y deny \\
+Evaluación     & Todas las reglas juntas          & Numeradas, primera que aplica \\
+Uso típico     & Firewall de host                & Bloqueo de IPs maliciosas \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{cuidado}
+NACLs son stateless: si permites tráfico entrante al puerto 80, necesitas una regla
+de salida para los puertos efímeros (1024--65535) para que las respuestas puedan salir.
+Con Security Groups no: al ser stateful, la respuesta se permite automáticamente.
+\end{cuidado}
+
+\subsection{AWS PrivateLink / GCP Private Service Connect}
+
+\begin{moderno}
+\emoji{rocket} Acceso a servicios (S3, DynamoDB, APIs de terceros) sin que el tráfico
+salga a Internet. El servicio se expone como un endpoint en tu VPC con IP privada.
+El tráfico nunca cruza un IGW. Mitiga riesgo de exfiltración y elimina cargos de
+NAT Gateway para tráfico a servicios del proveedor (S3 puede ser millones al mes).
+\end{moderno}
+
+% ─────────────────────────────────────────────
+\section{\eh{satellite} CDN y Edge Networking}
+
+\begin{concepto}
+Una \textbf{CDN (Content Delivery Network)} distribuye contenido estático (imágenes,
+JS, CSS, videos) a \textbf{PoPs (Points of Presence)} cercanos a los usuarios finales.
+El objetivo: reducir latencia sirviendo desde el PoP más próximo al usuario, no desde
+el origen.
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Provider} & \textbf{CDN} & \textbf{Diferenciador} \\
+\midrule
+AWS         & CloudFront     & Integración nativa con S3, ALB, Lambda@Edge \\
+GCP         & Cloud CDN      & Backbone privado Google, anycast global \\
+Cloudflare  & Cloudflare CDN & DDoS protection, Workers edge compute \\
+Akamai      & Akamai CDN     & Mayor red de PoPs del mundo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{ejemplo}
+\textbf{Latencia con y sin CDN para usuario en CDMX accediendo a servidor en Virginia:}
+\begin{itemize}
+    \item Sin CDN: CDMX $\to$ Internet $\to$ Virginia. RTT $\approx$ 80ms. Carga HTML+JS+CSS
+          requiere múltiples round-trips: $>$500ms.
+    \item Con CDN (PoP en CDMX): JS/CSS servidos localmente. RTT al PoP $\approx$ 5ms.
+          Solo llamadas a API van a Virginia. Carga percibida: $<$100ms.
+\end{itemize}
+\end{ejemplo}

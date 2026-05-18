@@ -86,7 +86,7 @@
 
 % Diagramas
 \usepackage{tikz}
-\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing}
+\usetikzlibrary{shapes, arrows.meta, positioning, calc, decorations.pathreplacing, babel}
 
 % Matemáticas
 \usepackage{amsmath}
@@ -109,6 +109,11 @@
 % Dark mode: fondo y texto global
 \pagecolor{darkbg}
 \color{textlight}
+% Redefine \normalcolor so chapter/section titles and tables stay light
+\makeatletter
+\colorlet{normalcolor@tmp}{textlight}
+\def\normalcolor{\color{normalcolor@tmp}}
+\makeatother
 
 % Evitar que \MakeUppercase del book class rompa emojis en running headers
 \renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}

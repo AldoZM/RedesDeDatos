@@ -97,13 +97,13 @@ Una flow entry tiene dos partes:
 
 \subsection{Formato de flow entry OpenFlow 1.3}
 
-\begin{verbatim}
+\begin{lstlisting}
 +-----------+----------+---------+---------+----------+----------+
 | Match     | Priority | Counters| Timeout | Cookie   | Actions  |
 | (12+ campos)         | (pkts,  | (idle,  | (opaco)  | (lista)  |
 |           |          |  bytes) |  hard)  |          |          |
 +-----------+----------+---------+---------+----------+----------+
-\end{verbatim}
+\end{lstlisting}
 
 \begin{codigo}
 \begin{lstlisting}

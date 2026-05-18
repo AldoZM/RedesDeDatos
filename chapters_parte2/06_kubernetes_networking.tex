@@ -1,1 +1,226 @@
-﻿% TODO
+% chapters_parte2/06_kubernetes_networking.tex
+
+\chapter{\eh{gear} Networking en Kubernetes}
+
+Kubernetes es hoy la plataforma estándar de orquestación de contenedores. Su modelo
+de red es intencionalmente simple en la interfaz pero complejo en la implementación:
+\emph{todo Pod puede hablar con todo Pod sin NAT}. Entender cómo se implementa eso
+es fundamental para operar clusters en producción.
+
+% ─────────────────────────────────────────────
+\section{\eh{memo} El Modelo de Red de Kubernetes}
+
+\begin{concepto}
+Kubernetes impone cuatro reglas fundamentales al networking:
+
+\begin{enumerate}
+    \item Cada Pod tiene su propia dirección IP única en el cluster.
+    \item Todos los Pods pueden comunicarse entre sí sin NAT.
+    \item Los nodos pueden comunicarse con todos los Pods sin NAT.
+    \item La IP que ve un Pod de sí mismo es la misma que ven los demás Pods.
+\end{enumerate}
+
+Estas reglas simplifican el modelo: las aplicaciones no necesitan saber si están en el
+mismo nodo o en nodos distintos. El networking subyacente lo resuelve.
+\end{concepto}
+
+\begin{cuidado}
+Kubernetes \textbf{define} el modelo pero \textbf{no lo implementa}. La implementación
+la provee el \textbf{CNI plugin} (Container Network Interface): Cilium, Calico, Flannel,
+Weave, etc. Distintos CNIs tienen distintas capacidades (Network Policies, encryption,
+eBPF, multicast, etc.).
+\end{cuidado}
+
+% ─────────────────────────────────────────────
+\section{\eh{electric-plug} Tipos de red en un cluster}
+
+\begin{center}
+\begin{tikzpicture}[
+    netbox/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                   rectangle, rounded corners=4pt, minimum width=5cm,
+                   minimum height=0.9cm, font=\small\bfseries, align=center},
+    node/.style={draw=green!50!white, fill=darkcardgreen, text=textlight,
+                 rectangle, rounded corners=4pt, minimum width=3cm,
+                 minimum height=0.8cm, font=\small, align=center},
+    pod/.style={draw=gray!50!white, fill=darkcardgray, text=textlight,
+                rectangle, minimum width=1.5cm, minimum height=0.6cm,
+                font=\tiny, align=center},
+    arrow/.style={->, thick, draw=gray!60!white},
+]
+    \node[netbox] (pod_net) at (0, 4.5) {Pod Network (ej. 10.244.0.0/16)};
+    \node[netbox] (svc_net) at (0, 3)   {Service Network (ej. 10.96.0.0/12)};
+    \node[netbox] (node_net) at (0, 1.5) {Node Network (ej. 192.168.1.0/24)};
+
+    \node[node]  (n1) at (-3, 0) {Node 1\\192.168.1.10};
+    \node[node]  (n2) at (3, 0)  {Node 2\\192.168.1.11};
+    \node[pod]   (p1) at (-4.2, -1.5) {Pod A\\10.244.0.2};
+    \node[pod]   (p2) at (-2.2, -1.5) {Pod B\\10.244.0.3};
+    \node[pod]   (p3) at (1.8, -1.5)  {Pod C\\10.244.1.2};
+    \node[pod]   (p4) at (3.8, -1.5)  {Pod D\\10.244.1.3};
+
+    \draw[arrow] (n1) -- (p1); \draw[arrow] (n1) -- (p2);
+    \draw[arrow] (n2) -- (p3); \draw[arrow] (n2) -- (p4);
+    \draw[arrow, dashed, draw=yellow!60!white] (p1) to[bend left=30]
+        node[font=\tiny, text=yellow!70!white, above] {CNI overlay} (p3);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{Pod Network:} rango de IPs asignadas a Pods. CNI lo administra.
+    \item \textbf{Service Network:} IPs virtuales de Services (ClusterIP). Solo existen
+          en iptables/eBPF; ningún dispositivo real las tiene.
+    \item \textbf{Node Network:} red física/real de los nodos. Preexiste a Kubernetes.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{gear} Services y kube-proxy}
+
+\begin{concepto}
+Los Pods son efímeros: mueren y resurgen con nuevas IPs. Un \textbf{Service} es una
+abstracción estable: tiene una IP virtual fija (ClusterIP) y un DNS name, y hace
+load balancing hacia los Pods seleccionados por su \texttt{selector}.
+
+\textbf{kube-proxy} implementa los Services programando reglas en el kernel del nodo:
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Modo} & \textbf{Mecanismo} & \textbf{Rendimiento} \\
+\midrule
+userspace & Proxy en espacio de usuario & Lento, legado \\
+iptables  & Reglas NAT en iptables       & Bueno, O(n) rules \\
+IPVS      & IP Virtual Server del kernel & Mejor, O(1) lookup \\
+eBPF      & Cilium sin kube-proxy        & Óptimo, bypass kernel stack \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Tipos de Service}
+
+\begin{itemize}
+    \item \textbf{ClusterIP (default):} IP virtual solo accesible dentro del cluster.
+          Uso: comunicación interna entre microservicios.
+    \item \textbf{NodePort:} expone el Service en un puerto fijo de cada nodo
+          (30000--32767). Accesible desde fuera del cluster via \texttt{NodeIP:NodePort}.
+    \item \textbf{LoadBalancer:} solicita un load balancer externo al cloud provider
+          (AWS ELB, GCP LB). Asigna IP pública automáticamente.
+    \item \textbf{ExternalName:} alias DNS a un FQDN externo. Útil para integrar
+          servicios externos como si fueran internos.
+    \item \textbf{Headless (ClusterIP: None):} no hay IP virtual; DNS devuelve
+          directamente las IPs de los Pods. Usado por StatefulSets (Kafka, Cassandra).
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{shield} Network Policies}
+
+\begin{concepto}
+Por defecto, todos los Pods en un cluster pueden comunicarse entre sí (modelo flat).
+\textbf{NetworkPolicy} permite definir reglas de firewall a nivel de Pod: qué pods
+pueden conectarse a qué otros pods, en qué puertos y protocolos.
+
+Las NetworkPolicies son aditivas: si no hay política, se permite todo. Si hay al menos
+una política que selecciona un Pod, ese Pod solo acepta lo que las políticas permiten.
+\end{concepto}
+
+\begin{codigo}
+\begin{lstlisting}
+# Solo permitir trafico al pod "backend" desde pods con label "tier: frontend"
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+\end{lstlisting}
+\end{codigo}
+
+\begin{cuidado}
+NetworkPolicies requieren que el CNI plugin las soporte. Flannel no las implementa.
+Calico, Cilium, y Weave sí. Sin un CNI compatible, los objetos NetworkPolicy se crean
+pero no tienen efecto alguno --- la red sigue siendo completamente abierta.
+\end{cuidado}
+
+% ─────────────────────────────────────────────
+\section{\eh{globe-with-meridians} Ingress y Gateway API}
+
+\begin{concepto}
+Los Services de tipo LoadBalancer son costosos (un LB externo por Service). \textbf{Ingress}
+consolida el tráfico HTTP/HTTPS de múltiples Services detrás de un solo load balancer,
+enrutando por host y path.
+\end{concepto}
+
+\begin{codigo}
+\begin{lstlisting}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mi-app-ingress
+spec:
+  rules:
+  - host: api.miempresa.com
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v1
+            port:
+              number: 80
+      - path: /v2
+        pathType: Prefix
+        backend:
+          service:
+            name: api-v2
+            port:
+              number: 80
+\end{lstlisting}
+\end{codigo}
+
+\begin{moderno}
+\emoji{rocket} \textbf{Gateway API} (sucesor de Ingress): API más expresiva con soporte
+nativo para TCP, UDP, gRPC, y modelos multi-tenant. Separa responsabilidades entre el
+equipo de infraestructura (GatewayClass, Gateway) y el equipo de aplicación (HTTPRoute,
+TCPRoute). Cilium, Istio y Nginx ya la implementan. Ingress quedará deprecated eventualmente.
+\end{moderno}
+
+% ─────────────────────────────────────────────
+\section{\eh{satellite-antenna} CNI Plugins: Cilium vs Calico}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature} & \textbf{Cilium} & \textbf{Calico} \\
+\midrule
+Data plane         & eBPF                & iptables / eBPF (opcional) \\
+Rendimiento        & Excelente           & Bueno \\
+Network Policies   & L3/L4/L7 (HTTP, gRPC) & L3/L4 \\
+Observabilidad     & Hubble (flujos)     & Limitada \\
+Modo sin kube-proxy & Sí (eBPF)          & Parcial \\
+BGP support        & Sí                  & Sí (más maduro) \\
+Encryp. transparente & WireGuard/IPsec   & WireGuard/IPsec \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{ejemplo}
+\textbf{Por qué Cilium usa eBPF:}
+Con iptables, cada Service agrega reglas que el kernel evalúa secuencialmente.
+Con 10,000 Services, kube-proxy crea cientos de miles de reglas; la actualización
+tarda minutos y la evaluación es O(n). eBPF usa mapas hash: lookup O(1), actualizaciones
+atómicas en microsegundos. En clusters grandes ($>$500 nodos), Cilium reduce la latencia
+de Service lookup de milisegundos a microsegundos.
+\end{ejemplo}

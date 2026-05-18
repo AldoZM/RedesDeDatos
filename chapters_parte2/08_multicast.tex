@@ -1,1 +1,220 @@
-﻿% TODO
+% chapters_parte2/08_multicast.tex
+
+\chapter{\eh{mega} Multicast}
+
+Imagina transmitir un partido de fútbol a 1 millón de espectadores. Con \textbf{unicast},
+el servidor enviaría 1 millón de copias del mismo stream: imposible. Con
+\textbf{broadcast}, llegaría a todos los dispositivos de la red, incluso a quienes no
+quieren verlo. \textbf{Multicast} resuelve esto elegantemente: el servidor envía
+\emph{una sola copia} que la red replica solo hacia quienes la solicitaron.
+
+% ─────────────────────────────────────────────
+\section{\eh{bar-chart} Unicast vs Broadcast vs Multicast}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Modelo} & \textbf{Destinatario} & \textbf{Copias en red} & \textbf{Uso} \\
+\midrule
+Unicast   & Un host específico       & Una por destino         & HTTP, SSH, DNS \\
+Broadcast & Todos en el segmento L2  & Una (pero llega a todos) & ARP, DHCP \\
+Multicast & Grupo de interesados     & Una (la red la replica) & IPTV, routing protocols \\
+Anycast   & El más cercano del grupo & Una                     & DNS raíz, CDN \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{cuidado}
+Multicast tiene reputación de ser complejo de implementar y operar. No es mito:
+requiere soporte en cada router del camino, gestión de grupos, y protocolos adicionales
+(PIM, IGMP, MSDP). Por eso en la nube pública casi no existe multicast nativo: AWS
+y GCP no lo soportan en VPCs. Se reemplaza con overlay multicast (software) o CDN.
+\end{cuidado}
+
+% ─────────────────────────────────────────────
+\section{\eh{label} Direcciones Multicast}
+
+\begin{concepto}
+IPv4 reserva el rango \textbf{224.0.0.0/4} para multicast ($224.x.x.x$ a $239.x.x.x$).
+Cada \emph{grupo multicast} tiene una dirección en este rango. Un host se ``une'' al
+grupo para recibir tráfico; puede abandonarlo en cualquier momento.
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Rango} & \textbf{Nombre} & \textbf{Uso} \\
+\midrule
+224.0.0.0/24   & Link-local       & Protocolos de routing (OSPF: 224.0.0.5/6, HSRP: 224.0.0.2) \\
+224.0.1.0/24   & Internetwork     & NTP: 224.0.1.1, uso general \\
+232.0.0.0/8    & Source-Specific  & SSM (Source-Specific Multicast) \\
+239.0.0.0/8    & Admin-scoped     & Multicast privado dentro de organización \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{MAC Multicast}
+
+\begin{concepto}
+Cuando un router L2 recibe un paquete multicast IP, lo encapsula en un frame Ethernet
+con una MAC de destino especial. El bit I/G del primer byte de la MAC indica multicast.
+Para IPs multicast, la MAC se construye así:
+
+\begin{center}
+\texttt{01:00:5E:[0][últimos 23 bits de la IP multicast]}
+\end{center}
+
+Ej: IP \texttt{224.1.1.1} $\to$ MAC \texttt{01:00:5E:01:01:01}.
+
+Consecuencia: los switches L2 no hacen multicast por defecto --- inundan a todos los
+puertos como si fuera broadcast. \textbf{IGMP Snooping} soluciona esto.
+\end{concepto}
+
+% ─────────────────────────────────────────────
+\section{\eh{ear-of-corn} IGMP --- Gestión de Grupos}
+
+\begin{concepto}
+\textbf{IGMP (Internet Group Management Protocol)} es el protocolo entre hosts y el
+router de primer salto para gestionar membresía a grupos multicast.
+\end{concepto}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Versión} & \textbf{Característica clave} & \textbf{Uso} \\
+\midrule
+IGMPv1 & Join básico, no hay Leave & Obsoleto \\
+IGMPv2 & Leave Group message      & Aún común \\
+IGMPv3 & Source filtering (SSM)   & Moderno, requerido para SSM \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{IGMP Query:} el router pregunta ``¿alguien quiere grupos multicast?''
+          cada 60--125 segundos.
+    \item \textbf{IGMP Report:} el host responde con los grupos a los que pertenece.
+    \item \textbf{IGMP Leave:} el host notifica que abandona un grupo (IGMPv2+).
+    \item \textbf{IGMP Snooping:} los switches L2 ``escuchan'' mensajes IGMP y aprenden
+          qué puerto tiene interesados en cada grupo, evitando flooding innecesario.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{deciduous-tree} PIM --- Routing Multicast entre Routers}
+
+\begin{concepto}
+IGMP maneja el último salto (host $\leftrightarrow$ router). Para que el tráfico
+multicast fluya entre routers en la red, se usa \textbf{PIM (Protocol Independent
+Multicast)}. ``Protocol Independent'' porque funciona sobre cualquier protocolo de
+routing unicast (OSPF, BGP, etc.), usando su tabla de routing para construir árboles
+de distribución multicast.
+\end{concepto}
+
+\subsection{PIM Dense Mode (PIM-DM)}
+
+\begin{itemize}
+    \item Asume que todos los segmentos quieren el tráfico multicast.
+    \item \textbf{Flood and prune:} inunda todo, luego los routers sin interesados
+          envían mensajes Prune para cortar el árbol.
+    \item Simple pero ineficiente. Solo adecuado para redes pequeñas donde la mayoría
+          de los segmentos sí tienen receptores.
+\end{itemize}
+
+\subsection{PIM Sparse Mode (PIM-SM)}
+
+\begin{concepto}
+Modelo opuesto: asume que \emph{pocos} segmentos quieren el tráfico. Los routers
+deben suscribirse explícitamente. Usa un \textbf{RP (Rendezvous Point)}: router central
+donde fuentes y receptores se ``encuentran''.
+\end{concepto}
+
+\begin{center}
+\begin{tikzpicture}[
+    rtr/.style={draw=cyan!50!white, fill=darkcardgray, text=textlight,
+                circle, minimum size=0.9cm, font=\tiny\bfseries},
+    rp/.style={draw=yellow!60!white, fill=darkcardviolet, text=textlight,
+               circle, minimum size=0.9cm, font=\tiny\bfseries},
+    host/.style={draw=gray!50!white, fill=darkcardgray, text=textlight,
+                 rectangle, minimum width=1.2cm, minimum height=0.6cm, font=\tiny, align=center},
+    arrow/.style={->, thick, draw=gray!60!white},
+    joinpath/.style={->, thick, draw=green!60!white, dashed},
+    srcpath/.style={->, thick, draw=yellow!60!white},
+]
+    \node[rp]  (rp) at (3, 4)   {RP};
+    \node[rtr] (r1) at (0, 2)   {R1};
+    \node[rtr] (r2) at (3, 2)   {R2};
+    \node[rtr] (r3) at (6, 2)   {R3};
+    \node[host] (src) at (0, 0.5) {Fuente\\224.1.1.1};
+    \node[host] (rx1) at (3, 0.5) {Receptor 1};
+    \node[host] (rx2) at (6, 0.5) {Receptor 2};
+    \draw[arrow] (r1) -- (rp);
+    \draw[arrow] (r2) -- (rp);
+    \draw[arrow] (r3) -- (rp);
+    \draw[srcpath] (src) -- node[font=\tiny, text=yellow!70!white, left] {stream} (r1);
+    \draw[joinpath] (rx1) -- node[font=\tiny, text=green!70!white, right] {Join} (r2);
+    \draw[joinpath] (rx2) -- node[font=\tiny, text=green!70!white, right] {Join} (r3);
+    \draw[srcpath] (rp) -- (r2);
+    \draw[srcpath] (rp) -- (r3);
+\end{tikzpicture}
+
+{\small Receptores hacen Join hacia el RP. Fuente registra su stream en el RP.
+RP distribuye a los routers con receptores. Después puede formarse un Shortest Path Tree
+directo fuente $\to$ receptor (SPT switchover).}
+\end{center}
+
+\subsection{PIM Source-Specific Multicast (PIM-SSM)}
+
+\begin{concepto}
+Variante moderna que elimina el RP. Los receptores se suscriben a un grupo multicast
+\emph{y} una fuente específica: \texttt{(S, G)} en lugar de \texttt{(*, G)}. Más simple,
+más seguro (no hay fuentes no autorizadas), y usa el rango 232.0.0.0/8.
+Requiere IGMPv3 en los hosts.
+\end{concepto}
+
+% ─────────────────────────────────────────────
+\section{\eh{television} Aplicaciones Reales}
+
+\begin{ejemplo}
+\textbf{IPTV (Televisión sobre IP):} operadores como Izzi, Totalplay o Claro TV
+distribuyen canales de TV usando multicast. Un canal de HD requiere $\approx$4--8 Mbps.
+Con unicast, 10,000 suscriptores viendo el mismo canal = 80 Gbps desde el servidor.
+Con multicast = 8 Mbps independientemente del número de suscriptores. El router del
+cliente (CPE) hace IGMP Join cuando el usuario cambia de canal.
+\end{ejemplo}
+
+\begin{ejemplo}
+\textbf{Protocolos de routing:} OSPF usa \texttt{224.0.0.5} (todos los routers OSPF)
+y \texttt{224.0.0.6} (DR/BDR). Esto es multicast link-local: el paquete nunca pasa
+de ese segmento L2. Sin multicast, OSPF tendría que usar broadcast o unicast punto a punto.
+\end{ejemplo}
+
+\begin{moderno}
+\emoji{rocket} \textbf{Multicast en datacenters modernos:} VxLAN con BUM traffic
+(Broadcast, Unknown-unicast, Multicast) puede usar multicast IP underlay en lugar
+de ingress replication. El switch Leaf hace IGMP Join para el grupo multicast del VNI.
+Sin embargo, EVPN con ingress replication es hoy más común porque no requiere multicast
+en el underlay (muchos clouds no lo soportan). En Kubernetes, \textbf{no hay multicast
+nativo en las VPCs de nube pública}: se simula con servicios como AWS SNS (fan-out de
+mensajes) o con aplicación-level multicast en frameworks como Hazelcast.
+\end{moderno}
+
+\section{\eh{check-mark-button} Resumen del Ecosistema Parte 2}
+
+Al completar estos apuntes has cubierto el stack completo del networking moderno:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Tema} & \textbf{Dónde aplica hoy} \\
+\midrule
+Wireless empresarial   & Oficinas, campus, IoT industrial \\
+Switching avanzado     & Cualquier red LAN empresarial \\
+SDN / OpenFlow         & Datacenter, WAN empresarial \\
+VxLAN + EVPN           & AWS, Azure, GCP internamente; datacenter privado \\
+MPLS + QoS             & ISPs, WAN empresarial, voz sobre IP \\
+Kubernetes networking  & Todo cluster en producción \\
+Cloud networking       & Toda aplicación en AWS/GCP/Azure \\
+Multicast              & IPTV, protocolos de routing, streaming masivo \\
+\bottomrule
+\end{tabular}
+\end{center}
