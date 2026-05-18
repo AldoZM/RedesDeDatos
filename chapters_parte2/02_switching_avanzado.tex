@@ -1,1 +1,346 @@
-﻿% TODO
+% chapters_parte2/02_switching_avanzado.tex
+
+\chapter{\eh{electric-plug} Switching Avanzado}
+
+Si en la Parte 1 aprendiste que un switch aprende MACs y reenvía tramas, aquí vas a aprender
+cómo los switches de nivel empresarial manejan escenarios que un switch hogareño ni soñaría:
+múltiples instancias de Spanning Tree, cifrado en el cable, VLANs anidadas, aislamiento de
+puertos, control de tormentas de tráfico, y autenticación de dispositivos en el puerto físico.
+
+% ─────────────────────────────────────────────
+\section{\eh{repeat-button} MSTP — Multiple Spanning Tree Protocol (802.1s)}
+
+\begin{concepto}
+\textbf{Problema con RSTP clásico:} una sola instancia STP para \emph{todas} las VLANs.
+Eso significa que si el árbol bloquea un enlace, lo bloquea para \textbf{todo el tráfico},
+sin importar la VLAN. Es como cerrar un carril de una autopista y afectar a todos los
+vehículos, aunque la mitad fueran por destinos distintos.
+
+\textbf{MSTP (802.1s)} mapea grupos de VLANs a instancias STP independientes, cada una
+con su propio árbol y su propio Root Bridge. Resultado: diferentes VLANs pueden usar
+diferentes caminos físicos de forma simultánea.
+\end{concepto}
+
+\subsection{Conceptos clave}
+
+\begin{itemize}
+    \item \textbf{MST Region:} conjunto de switches con la misma configuración MST
+          (mismo nombre de región, número de revisión y mapeo VLAN$\to$instancia). Los
+          switches fuera de la región se ven como un único switch virtual (boundary).
+    \item \textbf{IST (Internal Spanning Tree / Instancia 0):} instancia especial que
+          interopera con switches RSTP/STP clásicos en la frontera de la región.
+    \item \textbf{MSTI (MST Instance):} instancias 1--64, cada una con su propio Root
+          Bridge y topología independiente.
+\end{itemize}
+
+\subsection{Configuración Cisco IOS}
+
+\begin{codigo}
+\begin{lstlisting}
+spanning-tree mode mst
+
+spanning-tree mst configuration
+  name CORP_REGION
+  revision 1
+  instance 1 vlan 10-20
+  instance 2 vlan 30-40
+  exit
+
+! Root bridge para instancia 1
+spanning-tree mst 1 priority 4096
+
+! Root bridge para instancia 2
+spanning-tree mst 2 priority 4096
+\end{lstlisting}
+\end{codigo}
+
+\subsection{Diagrama: MSTP balanceando tráfico}
+
+\begin{center}
+\begin{tikzpicture}[
+    sw/.style={draw=cyan!60!white, fill=darkcardgray, text=textlight,
+               rectangle, rounded corners=4pt, minimum width=2.4cm,
+               minimum height=0.8cm, font=\small\bfseries, align=center},
+    fwd1/.style={draw=blue!50!white, ultra thick},
+    fwd2/.style={draw=green!50!white, ultra thick},
+    blk/.style={thick, dashed, draw=orange!60!white},
+]
+    \node[sw] (a) at (0,3)   {SW-A\\Root MST1};
+    \node[sw] (b) at (4,3)   {SW-B\\Root MST2};
+    \node[sw] (c) at (2,1.5) {SW-C};
+    \node[sw] (d) at (0,0)   {SW-D};
+    \node[sw] (e) at (4,0)   {SW-E};
+
+    \draw[fwd1] (a) -- node[left, font=\tiny, text=blue!60!white] {VLAN 10-20} (c);
+    \draw[fwd2] (b) -- node[right, font=\tiny, text=green!60!white] {VLAN 30-40} (c);
+    \draw[fwd1] (c) -- (d);
+    \draw[fwd2] (c) -- (e);
+    \draw[blk]  (a) -- node[below left, font=\tiny, text=orange!70!white] {BLK} (d);
+    \draw[blk]  (b) -- node[below right, font=\tiny, text=orange!70!white] {BLK} (e);
+\end{tikzpicture}
+
+{\small VLAN 10-20 usan el camino izquierdo; VLAN 30-40 el derecho.
+Cada instancia bloquea enlaces distintos: \textbf{cero desperdicio de ancho de banda}.}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{locked} MACsec --- MAC Security (802.1AE)}
+
+\begin{concepto}
+\textbf{MACsec} cifra el tráfico \emph{hop-by-hop} en Layer 2: entre dos switches
+adyacentes, entre un switch y una laptop, entre dos datacenters unidos por fibra oscura.
+
+Analogía: TLS es el sobre sellado que va de tu laptop al servidor de Google.
+MACsec es el vehículo blindado que transporta ese sobre entre cada par de edificios.
+TLS protege el contenido; MACsec protege el cable físico en cada tramo.
+\end{concepto}
+
+\subsection{Cómo funciona}
+
+\begin{enumerate}
+    \item \textbf{MKA (MACsec Key Agreement):} protocolo basado en 802.1X que negocia
+          claves simétricas entre los peers. Corre sobre el mismo puerto que después cifrará.
+    \item \textbf{SecY (Security Entity):} bloque hardware/software que cifra/descifra
+          cada frame Ethernet en tiempo real.
+    \item \textbf{Overhead:} 32 bytes por frame (16 bytes SecTAG + 16 bytes ICV). Latencia
+          adicional: microsegundos en hardware con ASIC dedicado.
+\end{enumerate}
+
+\subsection{Formato del frame MACsec}
+
+\begin{verbatim}
++----------+----------+------------+-----------------+----------+----------+
+| Dst MAC  | Src MAC  | 0x88E5     |    SecTAG       | Payload  |   ICV    |
+| 6 bytes  | 6 bytes  | (S-Tag ET) |  8-16 bytes     | cifrado  | 16 bytes |
++----------+----------+------------+-----------------+----------+----------+
+                                    TCI|AN|SL|PN
+\end{verbatim}
+
+\begin{cuidado}
+MACsec requiere soporte en \textbf{hardware} (ASIC). No todos los switches lo implementan.
+Cisco Catalyst 9000 y Nexus 9000 lo soportan nativamente. Switches de gama baja, no.
+\end{cuidado}
+
+\subsection{TLS vs MACsec}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Característica} & \textbf{TLS} & \textbf{MACsec} \\
+\midrule
+Capa           & L7 (aplicación)   & L2 (enlace) \\
+Alcance        & End-to-end        & Hop-by-hop \\
+Qué cifra      & Payload TCP/UDP   & Frame Ethernet completo \\
+Visible al ISP & Solo IPs          & Nada (MACs también ocultas) \\
+Requiere app   & Sí                & No (transparente a la app) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ─────────────────────────────────────────────
+\section{\eh{nut-and-bolt} QinQ --- Double Tagging (802.1ad)}
+
+\begin{concepto}
+\textbf{Problema:} un cliente tiene sus propias VLANs (1--4094). El carrier (ISP) también
+usa VLANs internamente. Si ambos usan VLAN 100, hay colisión: el switch del carrier
+no distingue ``VLAN 100 del Cliente A'' de ``VLAN 100 del Cliente B''.
+
+\textbf{QinQ} añade un \emph{segundo tag} de VLAN. El tag interno (C-Tag, Customer Tag)
+pertenece al cliente. El tag externo (S-Tag, Service Tag) pertenece al carrier.
+El carrier solo ve S-Tags; los C-Tags son opacos para él.
+\end{concepto}
+
+\subsection{Formato del frame QinQ}
+
+\begin{verbatim}
++---------+---------+----------+---------+----------+---------+
+| Dst MAC | Src MAC | 0x88A8   | S-Tag   | 0x8100   | C-Tag   |
+| 6 bytes | 6 bytes |(S-Tag ET)|(4 bytes)|(C-Tag ET)|(4 bytes)|
++---------+---------+----------+---------+----------+---------+
+          ^-- Carrier procesa hasta aquí
+                                          ^-- Cliente ve esto
+\end{verbatim}
+
+\begin{ejemplo}
+Telmex te vende metro ethernet para conectar Polanco con Vallejo. Internamente usa S-Tag
+500 para identificar tu tráfico. Dentro de tu red usas VLAN 10 (datos) y VLAN 20 (voz).
+Los switches de Telmex no saben nada de tus VLANs internas: solo mueven frames con S-Tag 500.
+\end{ejemplo}
+
+% ─────────────────────────────────────────────
+\section{\eh{house} Private VLANs}
+
+\begin{concepto}
+\textbf{Private VLANs (PVLANs)} resuelven el aislamiento \emph{dentro} de una VLAN.
+Escenario: hosting con 50 VMs del Cliente A en la misma VLAN. No quieres que se vean
+entre sí — solo deben alcanzar el gateway. Con VLANs normales, cualquier VM habla con
+cualquier otra. PVLANs lo impiden a nivel de switch, sin necesidad de firewall adicional.
+\end{concepto}
+
+\subsection{Tipos de puertos}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo} & \textbf{Puede hablar con} & \textbf{Caso de uso} \\
+\midrule
+Promiscuous  & Todos                        & Router / gateway / firewall \\
+Isolated     & Solo Promiscuous             & VM aislada, servidor de cliente \\
+Community    & Su comunidad + Promiscuous   & VMs del mismo tenant que sí se comunican \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{codigo}
+\begin{lstlisting}
+vlan 100
+  private-vlan primary
+vlan 101
+  private-vlan isolated
+vlan 102
+  private-vlan community
+vlan 100
+  private-vlan association 101,102
+
+! Puerto promiscuous (router/gateway)
+interface GigabitEthernet0/1
+  switchport mode private-vlan promiscuous
+  switchport private-vlan mapping 100 101,102
+
+! Puerto isolated (VM aislada)
+interface GigabitEthernet0/2
+  switchport mode private-vlan host
+  switchport private-vlan host-association 100 101
+\end{lstlisting}
+\end{codigo}
+
+% ─────────────────────────────────────────────
+\section{\eh{satellite-antenna} IGMP Snooping}
+
+\begin{concepto}
+Sin IGMP Snooping, un switch trata tráfico multicast como \textbf{broadcast}: lo manda
+a todos los puertos del segmento. Un stream de video 4K a 20 Mbps llega a todos,
+aunque solo una laptop lo haya pedido.
+
+Con IGMP Snooping, el switch \emph{escucha} los mensajes IGMP que cruzan sus puertos
+y construye una tabla de ``qué puerto quiere qué grupo multicast''. El tráfico
+solo va a los puertos interesados.
+\end{concepto}
+
+\subsection{Flujo de aprendizaje}
+
+\begin{enumerate}
+    \item Router manda \textbf{IGMP General Query} a \texttt{224.0.0.1} cada 60 s.
+    \item Host interesado responde con \textbf{IGMP Membership Report} (grupo específico).
+    \item Switch anota: ``Puerto X quiere grupo 239.1.1.1''.
+    \item Host que ya no quiere el grupo manda \textbf{IGMP Leave}.
+    \item Switch elimina la entrada (o espera timeout de membresía).
+\end{enumerate}
+
+\begin{cuidado}
+IGMP Snooping necesita un \textbf{IGMP Querier} en la VLAN (normalmente el router
+multicast). Sin Querier, los hosts nunca envían Reports espontáneamente y el switch
+no aprende → el tráfico multicast termina siendo flooded de todas formas.
+
+Si no hay router multicast, configura \texttt{ip igmp snooping querier} en el switch.
+\end{cuidado}
+
+% ─────────────────────────────────────────────
+\section{\eh{cloud-with-lightning} Storm Control}
+
+\begin{concepto}
+Un loop de red o NIC defectuoso puede generar tráfico broadcast/multicast que se multiplica
+exponencialmente: un frame genera 2, esos 2 generan 4, y en segundos tienes una
+\emph{broadcast storm} que satura todos los enlaces al 100\%.
+
+\textbf{Storm Control} monitorea el porcentaje de ancho de banda consumido por
+broadcast/multicast/unknown unicast. Si supera el umbral, descarta los frames en exceso
+(o apaga el puerto).
+\end{concepto}
+
+\begin{codigo}
+\begin{lstlisting}
+interface GigabitEthernet0/1
+  storm-control broadcast level 20.00
+  storm-control multicast level 10.00
+  storm-control action shutdown
+\end{lstlisting}
+\end{codigo}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acción} & \textbf{Comportamiento} \\
+\midrule
+\texttt{drop}     & Descarta exceso, puerto sigue activo \\
+\texttt{shutdown} & Apaga el puerto (err-disabled) \\
+\texttt{trap}     & Genera SNMP trap al NMS \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+    \item \textbf{STP} previene loops $\to$ evita que la tormenta ocurra.
+    \item \textbf{Storm Control} limita el daño si la tormenta \emph{ya ocurrió}.
+    Son complementarios, no alternativos.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{\eh{key} 802.1X en Switches --- Wired NAC}
+
+\begin{concepto}
+El mismo 802.1X del Wi-Fi empresarial aplica a \textbf{puertos físicos de switch}. Un
+puerto en estado \emph{unauthorized} no permite tráfico de datos hasta que el dispositivo
+autentica contra RADIUS.
+
+Analogía: el puerto del switch es el torniquete de un edificio. Sin credenciales válidas
+no entras, aunque físicamente hayas insertado el cable.
+\end{concepto}
+
+\subsection{MAB --- MAC Authentication Bypass}
+
+\begin{concepto}
+Impresoras, teléfonos IP y cámaras no tienen \emph{supplicant} 802.1X. No pueden
+iniciar el handshake EAP.
+
+\textbf{MAB} es el fallback: si el dispositivo no responde al EAPOL-Request inicial,
+el switch toma su MAC y la envía a RADIUS como si fuera el ``usuario''. RADIUS tiene
+una base de datos de MACs autorizadas.
+
+Limitación: MACs se pueden falsificar (\emph{MAC spoofing}). MAB no es autenticación
+fuerte; es ``mejor que nada'' para dispositivos sin 802.1X.
+\end{concepto}
+
+\begin{codigo}
+\begin{lstlisting}
+aaa new-model
+aaa authentication dot1x default group radius
+aaa authorization network default group radius
+dot1x system-auth-control
+
+interface GigabitEthernet0/2
+  switchport mode access
+  switchport access vlan 10
+  authentication port-control auto
+  authentication order dot1x mab
+  authentication priority dot1x mab
+  dot1x pae authenticator
+  mab
+\end{lstlisting}
+\end{codigo}
+
+\subsection{VLANs de contingencia}
+
+\begin{itemize}
+    \item \textbf{Guest VLAN:} dispositivos que no inician 802.1X caen aquí (acceso limitado).
+    \item \textbf{Auth-Fail VLAN:} intentaron autenticar pero fallaron (portal de error).
+    \item \textbf{Critical VLAN:} si RADIUS está caído, el puerto cae aquí en vez de
+          bloquearse por completo. Evita lockout total de la red.
+\end{itemize}
+
+\begin{moderno}
+\emoji{sparkles} \textbf{Cisco ISE (Identity Services Engine)} integra 802.1X + MAB +
+postura de seguridad (¿el dispositivo tiene antivirus? ¿parches aplicados?) + profiling
+automático (identifica si es impresora HP o iPhone) y asigna políticas por identidad,
+no por puerto físico. Es el cerebro del NAC empresarial moderno.
+\end{moderno}

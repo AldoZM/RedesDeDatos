@@ -15,11 +15,22 @@
 
 % Layout
 \usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
+
+% Colores (antes de hyperref para poder referenciar colores ahí)
+\usepackage{xcolor}
+\definecolor{darkbg}{RGB}{18, 18, 18}
+\definecolor{textlight}{RGB}{220, 220, 220}
+\definecolor{darkcard}{RGB}{30, 30, 45}
+\definecolor{darkcardgreen}{RGB}{20, 40, 25}
+\definecolor{darkcardorange}{RGB}{45, 28, 10}
+\definecolor{darkcardviolet}{RGB}{35, 20, 50}
+\definecolor{darkcardgray}{RGB}{35, 35, 35}
+
 \usepackage{hyperref}
 \hypersetup{
     colorlinks=true,
-    linkcolor=blue!70!black,
-    urlcolor=blue!70!black,
+    linkcolor=cyan!70!white,
+    urlcolor=cyan!70!white,
     pdftitle={Apuntes de Redes de Datos --- Parte 2},
     pdfauthor={Aldo Zepeda}
 }
@@ -28,40 +39,49 @@
 \usepackage[most]{tcolorbox}
 \tcbuselibrary{skins, breakable}
 
-% Cajas personalizadas
+% Cajas personalizadas — dark mode
 \newtcolorbox{concepto}[1][]{
     title={\emoji{brain} Concepto},
-    colback=blue!8!white, colframe=blue!50!black,
+    colback=darkcard, colframe=blue!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{ejemplo}[1][]{
     title={\emoji{package} Ejemplo real},
-    colback=green!8!white, colframe=green!50!black,
+    colback=darkcardgreen, colframe=green!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{cuidado}[1][]{
     title={\emoji{warning} Cuidado},
-    colback=orange!15!white, colframe=orange!70!black,
+    colback=darkcardorange, colframe=orange!60!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{moderno}[1][]{
     title={\emoji{rocket} Tecnología Moderna},
-    colback=violet!8!white, colframe=violet!60!black,
+    colback=darkcardviolet, colframe=violet!50!gray,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 \newtcolorbox{codigo}[1][]{
     title={\emoji{laptop} Configuración / Código},
-    colback=gray!10!white, colframe=gray!60!black,
+    colback=darkcardgray, colframe=gray!50!white,
+    coltext=textlight, coltitle=white,
     fonttitle=\bfseries, breakable, #1
 }
 
-% Código fuente
+% Código fuente — dark mode
 \usepackage{listings}
 \lstset{
-    basicstyle=\ttfamily\small,
-    backgroundcolor=\color{gray!10},
+    basicstyle=\ttfamily\small\color{green!60!white},
+    backgroundcolor=\color{black!80},
     frame=single,
-    breaklines=true
+    rulecolor=\color{gray!50},
+    breaklines=true,
+    keywordstyle=\color{cyan!80!white},
+    commentstyle=\color{gray!60!white},
+    stringstyle=\color{yellow!70!white}
 }
 
 % Diagramas
@@ -70,9 +90,6 @@
 
 % Matemáticas
 \usepackage{amsmath}
-
-% Colores
-\usepackage{xcolor}
 
 % Tablas
 \usepackage{booktabs}
@@ -88,6 +105,10 @@
 
 %% ============================================================
 \begin{document}
+
+% Dark mode: fondo y texto global
+\pagecolor{darkbg}
+\color{textlight}
 
 % Evitar que \MakeUppercase del book class rompa emojis en running headers
 \renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
